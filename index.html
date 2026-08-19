@@ -127,6 +127,23 @@
         .btn-mini-del { background: #fee2e2; color: #ef4444; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 0.75rem; }
     </style>
 </head>
+<script>
+  // 1. Chặn menu chuột phải
+  document.addEventListener('contextmenu', event => event.preventDefault());
+
+  // 2. Chặn các phím tắt F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+  document.onkeydown = function (e) {
+    // F12
+    if (e.keyCode === 123) return false;
+    
+    // Ctrl + Shift + I / J / C
+    if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) return false;
+    
+    // Ctrl + U (Xem nguồn trang)
+    if (e.ctrlKey && e.keyCode === 85) return false;
+  };
+</script>
+
 <body>
 
 <div class="container">
@@ -198,9 +215,20 @@
 
     <!-- Footer Note -->
     <div class="footer-note">
-        Lưu ý: Không đồng bộ giữa các thiết bị, Xóa dữ liệu duyệt web là mất luôn, Khác trình duyệt là mất. Nên là: 1 thiết bị, 1 trình duyệt thôi
+        Lưu ý 1: Không đồng bộ giữa các thiết bị, Xóa dữ liệu duyệt web là mất luôn, Khác trình duyệt là mất. Nên là: 1 thiết bị, 1 trình duyệt thôi
     </div>
 </div>
+ <!-- Footer Note -->
+    <div class="footer-note">
+        Lưu ý 2: Định dạng từ nhập vào, ví dụ: obligate : /obligeit/ : VERB : bắt buộc (cop định dạng ở đây làm mẫu rồi vứt cho chat gpt nhé <3)
+    </div>
+</div>
+ <!-- Footer Note -->
+    <div class="footer-note">
+	Note: thít học chung từ vựng thì đây nhé: https://docs.google.com/document/d/1-6DdRVevx5lmrzsAxZcIw4F8spFCYKTFjB06PpwrQgE/edit?tab=t.0
+       </div>
+</div>
+
 
 <!-- MODAL HỌC TỔNG HỢP -->
 <div class="modal" id="studyModal">
