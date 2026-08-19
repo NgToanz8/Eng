@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Học Từ Vựng Nâng Cấp</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; }
+        body { background-color: #f4f7fe; padding: 20px; color: #2b3674; }
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .title { font-size: 1.5rem; font-weight: 700; color: #1b2559; }
+
+        /* Grid Bộ Từ */
+        .set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px; }
+        .set-card { background: white; border: 2px dashed #cbd5e1; border-radius: 16px; padding: 15px 20px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.2s; }
+        .set-card:hover { border-color: #4318ff; transform: translateY(-2px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .set-card.active-card { border: 2px solid #4318ff; background: #ffffff; box-shadow: 0 4px 15px rgba(67, 24, 255, 0.15); }
+        .set-num { width: 40px; height: 40px; background: #e2e8f0; color: #475569; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .active-card .set-num { background: #e0e7ff; color: #4318ff; }
+        .btn-delete-set { background: #fee2e2; color: #ef4444; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; margin-left: 8px; }
+
+        /* Card Chọn Chế Độ Học */
+        .mode-section { display: none; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .mode-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
+        .mode-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .mode-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 15px; }
+        .card-mode { border-radius: 16px; padding: 20px; color: white; text-align: center; cursor: pointer; transition: 0.2s; }
+        .card-mode:hover { transform: translateY(-4px); }
+        .bg-flashcard { background: linear-gradient(135deg, #a855f7, #7e22ce); }
+        .bg-quiz      { background: linear-gradient(135deg, #3b82f6, #1d4ed8); }
+        .bg-listening { background: linear-gradient(135deg, #10b981, #047857); }
+
+        /* Khung Thêm / Xem Từ */
+        .append-box, .view-words-box { background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 14px; padding: 15px; margin: 15px 0; display: none; }
+        .btn-append-toggle { background: #e0e7ff; color: #4318ff; border: none; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+        .btn-append-toggle:hover { background: #c7d2fe; }
+        .btn-view-toggle { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; padding: 8px 16px; border-radius: 20px; font-weight: bold; cursor: pointer; font-size: 0.85rem; transition: 0.2s; }
+        .btn-view-toggle:hover { background: #e2e8f0; }
+
+        /* Option Toggle Shuffle */
+        .shuffle-option { margin-top: 15px; padding-top: 15px; border-top: 1px solid #e2e8f0; display: flex; align-items: center; gap: 10px; font-weight: 600; color: #475569; cursor: pointer; user-select: none; }
+        .shuffle-option input { width: 18px; height: 18px; cursor: pointer; }
+
+        /* Form Thêm Bộ Từ */
+        .add-set-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        textarea { width: 100%; height: 80px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 10px; margin: 10px 0; outline: none; font-family: inherit; }
+        .btn-primary { padding: 10px 20px; background: #4318ff; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .btn-secondary { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
+        /* Footer Note */
+        .footer-note { text-align: center; font-size: 0.85rem; color: #64748b; margin: 20px 0; line-height: 1.5; font-style: italic; }
+
+        /* Modal Màn Hình Học Chung */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f8fafc; z-index: 1000; overflow-y: auto; padding: 20px 10px 120px 10px; }
+        .modal-container { max-width: 800px; margin: 0 auto; background: white; border-radius: 24px; padding: 20px 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); position: relative; }
+        
+        /* Top Navigation Trong Trận Học */
+        .study-header { display: flex; justify-content: space-between; align-items: center; border: 2px solid #e2e8f0; border-radius: 50px; padding: 10px 20px; margin-bottom: 25px; font-weight: 600; color: #475569; }
+        .progress-bar-bg { width: 100%; background: #e2e8f0; height: 8px; border-radius: 4px; margin-top: 5px; overflow: hidden; }
+        .progress-bar-fill { height: 100%; background: #22c55e; width: 0%; transition: width 0.3s; }
+        .study-actions span { margin-left: 15px; cursor: pointer; color: #0284c7; }
+
+        /* Tag Loại Từ (VERB, NOUN...) */
+        .type-badge { background: #f3e8ff; color: #9333ea; padding: 3px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; display: inline-block; vertical-align: middle; }
+
+        /* --- 1. FLASHCARD LẬT 3D --- */
+        .scene { width: 100%; max-width: 500px; height: 280px; margin: 20px auto; perspective: 1000px; cursor: pointer; }
+        .flashcard-3d { width: 100%; height: 100%; position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); border-radius: 24px; }
+        .flashcard-3d.is-flipped { transform: rotateY(180deg); }
+        .card-face { position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; text-align: center; color: white; box-shadow: 0 10px 25px rgba(2, 132, 199, 0.2); }
+        .card-front { background: linear-gradient(135deg, #0284c7, #2563eb); }
+        .card-back  { background: linear-gradient(135deg, #0d9488, #059669); transform: rotateY(180deg); }
+        .card-hint-text { position: absolute; bottom: 15px; font-size: 0.8rem; opacity: 0.8; }
+        
+        .flashcard-controls { display: flex; justify-content: center; align-items: center; gap: 12px; margin-top: 20px; flex-wrap: wrap; }
+        .btn-control { border: none; padding: 10px 18px; border-radius: 30px; font-weight: bold; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; }
+        .btn-speak { background: #22c55e; color: white; padding: 10px 20px; border-radius: 30px; font-size: 0.9rem; font-weight: bold; cursor: pointer; border: none; }
+        .btn-nav { background: #f1f5f9; color: #0284c7; }
+
+        /* --- 2. QUIZ MODE --- */
+        .quiz-word-box { text-align: center; margin: 25px 0; }
+        .quiz-word { font-size: 2.2rem; font-weight: 800; color: #0f172a; margin-bottom: 8px; }
+        .ipa-text { color: #64748b; font-size: 1.1rem; margin-left: 8px; font-family: monospace; }
+        .quiz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; max-width: 650px; margin: 25px auto; }
+        
+        .quiz-opt { background: white; border: 2px solid #bae6fd; border-radius: 18px; padding: 18px; font-size: 1rem; font-weight: 600; color: #0f172a; cursor: pointer; text-align: left; display: flex; align-items: center; gap: 12px; transition: 0.2s; }
+        .quiz-opt:hover { border-color: #0284c7; background: #f0f9ff; }
+        .quiz-opt.opt-correct { border-color: #22c55e; background: #f0fdf4; color: #15803d; }
+        .quiz-opt.opt-wrong   { border-color: #ef4444; background: #fef2f2; color: #b91c1c; }
+        .opt-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: #64748b; }
+
+        /* Bottom Feedback Banner */
+        .feedback-banner { position: fixed; bottom: 0; left: 0; width: 100%; padding: 20px; color: white; display: none; align-items: center; justify-content: space-between; box-shadow: 0 -5px 20px rgba(0,0,0,0.15); z-index: 2000; }
+        .feedback-banner.bg-correct { background-color: #22c55e; }
+        .feedback-banner.bg-wrong   { background-color: #ef4444; }
+        .feedback-info { display: flex; align-items: center; gap: 15px; }
+        .feedback-status-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 3px; display: flex; align-items: center; gap: 5px; }
+        .feedback-speak-btn { background: white; color: #0f172a; border: none; width: 45px; height: 45px; border-radius: 50%; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; }
+        .btn-next-step { background: white; color: #0f172a; border: none; padding: 12px 28px; border-radius: 30px; font-weight: 800; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        /* --- 3. LISTENING MODE --- */
+        .listen-box { text-align: center; margin: 30px 0; }
+        .vi-meaning-title { font-size: 1.6rem; font-weight: 800; color: #0f172a; margin-bottom: 12px; }
+        .mask-word-display { font-size: 2.2rem; font-weight: 800; color: #f97316; letter-spacing: 6px; margin: 20px 0; font-family: monospace; }
+        .input-listen-styled { width: 100%; max-width: 500px; border: 2px solid #38bdf8; padding: 14px 24px; border-radius: 40px; font-size: 1.1rem; outline: none; text-align: center; box-shadow: 0 4px 10px rgba(56, 189, 248, 0.1); }
+        .input-listen-styled.correct-border { border-color: #22c55e; background: #f0fdf4; }
+        .input-listen-styled.wrong-border { border-color: #ef4444; background: #fef2f2; }
+        .typing-feedback { height: 24px; font-size: 0.9rem; font-weight: 600; margin: 8px 0 15px 0; }
+        .text-error { color: #d97706; }
+        .text-success { color: #16a34a; }
+        
+        .listen-actions-bar { display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .btn-action-tool { background: white; border: 1.5px solid #e2e8f0; border-radius: 30px; padding: 12px 24px; font-weight: 700; color: #334155; cursor: pointer; font-size: 0.95rem; display: flex; flex-direction: column; align-items: center; transition: 0.2s; }
+        .btn-action-tool:hover { background: #f8fafc; border-color: #cbd5e1; }
+        .btn-submit-green { background: #16a34a; color: white; border: none; border-radius: 30px; padding: 12px 36px; font-weight: 700; font-size: 1.05rem; cursor: pointer; transition: 0.2s; }
+        .btn-submit-green:hover { background: #15803d; }
+        .tool-shortcut { font-size: 0.75rem; color: #94a3b8; font-weight: normal; margin-top: 3px; }
+
+        /* BẢNG BẢO QUẢN DANH SÁCH TỪ */
+        .vocab-table { width: 100%; border-collapse: collapse; text-align: left; }
+        .vocab-table th { padding: 10px; font-size: 0.85rem; color: #64748b; border-bottom: 1px solid rgba(0,0,0,0.08); }
+        .vocab-table td { padding: 10px; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 0.95rem; font-weight: 600; }
+        .vocab-table tr:last-child td { border-bottom: none; }
+        .btn-mini-speak { background: none; border: none; cursor: pointer; color: #38bdf8; font-size: 1.1rem; margin-left: 5px; }
+        .btn-mini-del { background: #fee2e2; color: #ef4444; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h2 class="title">Hệ Thống Học Từ Vựng</h2>
+    </div>
+
+    <!-- Danh Sách Bộ Từ -->
+    <div class="set-grid" id="setGrid"></div>
+
+    <!-- Chọn Chế Độ Học & Quản Lý Từ Vựng Bộ Đang Chọn -->
+    <div class="mode-section" id="modeSection">
+        <div class="mode-header">
+            <h3 class="title" id="selectedTitle" style="font-size: 1.2rem;">Bộ đang chọn: ...</h3>
+            <div class="mode-actions">
+                <button class="btn-view-toggle" onclick="toggleViewWordsBox()">📋 Xem danh sách từ</button>
+                <button class="btn-append-toggle" onclick="toggleAppendBox()">➕ Thêm từ vựng mới</button>
+            </div>
+        </div>
+
+        <!-- Khung Xem Danh Sách Từ Trong Bộ -->
+        <div class="view-words-box" id="viewWordsBox">
+            <h4 style="font-size: 0.95rem; color: #334155; margin-bottom: 10px;">Toàn bộ từ vựng trong bộ này:</h4>
+            <div id="viewWordsTableContainer" style="max-height: 250px; overflow-y: auto;"></div>
+        </div>
+
+        <!-- Khung Thêm Từ Bổ Sung -->
+        <div class="append-box" id="appendBox">
+            <h4 style="font-size: 0.95rem; color: #334155; margin-bottom: 6px;">Thêm từ vựng bổ sung vào bộ hiện tại:</h4>
+            <textarea id="appendVocabText" placeholder="Nhập định dạng (mỗi từ 1 dòng):&#10;contract : /'kɔntrækt/ : NOUN : hợp đồng&#10;cancel : /'kænsl/ : VERB : hủy bỏ"></textarea>
+            <div style="display:flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn-append-toggle" style="background:#e2e8f0; color:#475569;" onclick="toggleAppendBox()">Hủy</button>
+                <button class="btn-secondary" onclick="addWordsToCurrentSet()">Lưu thêm từ</button>
+            </div>
+        </div>
+
+        <div class="mode-grid">
+            <div class="card-mode bg-flashcard" onclick="startMode('flashcard')">
+                <div style="font-size:24px; margin-bottom:8px;">🎴</div>
+                <b>Flashcard Lật</b>
+                <p style="font-size: 0.8rem; opacity: 0.9; margin-top:5px;">Lật thẻ 3D tự ghi nhớ</p>
+            </div>
+            <div class="card-mode bg-quiz" onclick="startMode('quiz')">
+                <div style="font-size:24px; margin-bottom:8px;">☑</div>
+                <b>Quiz Trắc Nghiệm</b>
+                <p style="font-size: 0.8rem; opacity: 0.9; margin-top:5px;">Thông báo kết quả tức thì</p>
+            </div>
+            <div class="card-mode bg-listening" onclick="startMode('listening')">
+                <div style="font-size:24px; margin-bottom:8px;">🎧</div>
+                <b>Luyện Nghe Gõ Từ</b>
+                <p style="font-size: 0.8rem; opacity: 0.9; margin-top:5px;">Tự động đặt con trỏ chuột gõ liên tục</p>
+            </div>
+        </div>
+        
+        <!-- Tùy chọn Đảo vị trí câu hỏi -->
+        <label class="shuffle-option">
+            <input type="checkbox" id="shuffleToggle" checked>
+            <span>🔀 Đảo thứ tự câu hỏi ngẫu nhiên khi học</span>
+        </label>
+    </div>
+
+    <!-- Thêm Phân Vùng Bộ Từ Mới Mới -->
+    <div class="add-set-box">
+        <h3>+ Thêm Phân Vùng Bộ Từ Mới</h3>
+        <input type="text" id="newSetName" placeholder="Tên bộ từ (VD: 01 - Contracts)..." style="width: 100%; padding: 10px; margin-top: 10px; border-radius: 8px; border: 1px solid #cbd5e1;">
+        <textarea id="newSetVocab" placeholder="Nhập định dạng (mỗi từ 1 dòng):&#10;agreement : /ə'gri:mənt/ : NOUN : hợp đồng, sự thỏa thuận&#10;obligate : /'ɔbligeit/ : VERB : bắt buộc"></textarea>
+        <button class="btn-primary" onclick="addNewSet()">Thêm Bộ Từ Mới</button>
+    </div>
+
+    <!-- Footer Note -->
+    <div class="footer-note">
+        Lưu ý: Không đồng bộ giữa các thiết bị, Xóa dữ liệu duyệt web là mất luôn, Khác trình duyệt là mất. Nên là: 1 thiết bị, 1 trình duyệt thôi
+    </div>
+</div>
+
+<!-- MODAL HỌC TỔNG HỢP -->
+<div class="modal" id="studyModal">
+    <div class="modal-container">
+        <!-- Top Navigation -->
+        <div class="study-header" id="modalHeader">
+            <div>
+                <span id="progressText">Câu 1 / 10</span>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+            </div>
+            <div class="study-actions">
+                <span onclick="restartMode()">🔄 Chơi lại</span>
+                <span onclick="closeModal()">Thoát</span>
+            </div>
+        </div>
+
+        <!-- Nội dung sẽ được render vào đây -->
+        <div id="studyContent"></div>
+    </div>
+</div>
+
+<!-- Bottom Banner Feedback -->
+<div class="feedback-banner" id="feedbackBanner">
+    <div class="feedback-info">
+        <button class="feedback-speak-btn" id="fbSpeakBtn">🔊</button>
+        <div>
+            <div class="feedback-status-title" id="fbStatusTitle">✓ Chính xác!</div>
+            <div>
+                <span style="font-size:1.2rem; font-weight:800;" id="fbWordEn">provision</span> 
+                <span style="font-size:0.9rem; opacity:0.9;" id="fbWordType">(noun)</span>
+            </div>
+            <div style="font-size:0.95rem; opacity:0.9;" id="fbWordIpa">//prəˈvɪʒn//</div>
+            <div style="font-size:1.05rem; font-weight:700; margin-top:2px;" id="fbWordVi">Nghĩa: điều khoản, sự cung cấp</div>
+        </div>
+    </div>
+    <button class="btn-next-step" onclick="proceedToNextQuestion()">Tiếp tục (Enter) ›</button>
+</div>
+
+<script>
+    const defaultSets = [
+        {
+            id: 1, name: "1 - Contracts (TOEIC)",
+            words: [
+                { en: "agreement", ipa: "/ə'gri:mənt/", type: "NOUN", vi: "hợp đồng, sự thỏa thuận" },
+                { en: "establish", ipa: "/is'tæbli∫/", type: "VERB", vi: "thiết lập" },
+                { en: "abide by", ipa: "/ə'baid/", type: "VERB", vi: "tuân theo" },
+                { en: "party", ipa: "/'pɑ:ti/", type: "NOUN", vi: "bên (trong hợp đồng)" },
+                { en: "obligate", ipa: "/'ɔbligeit/", type: "VERB", vi: "bắt buộc" },
+                { en: "determine", ipa: "/di'tə:min/", type: "VERB", vi: "xác định, quyết định" }
+            ]
+        }
+    ];
+
+    let vocabSets = JSON.parse(localStorage.getItem('myVocabSets_v6')) || defaultSets;
+    let currentSetIndex = -1;
+    let currentIndex = 0;
+    let currentMode = '';
+    let currentStudyWords = [];
+
+    let correctList = [];
+    let wrongList = [];
+    let isAnswered = false;
+    let revealedLength = 0;
+
+    function saveToStorage() {
+        localStorage.setItem('myVocabSets_v6', JSON.stringify(vocabSets));
+    }
+
+    function renderSets() {
+        const grid = document.getElementById('setGrid');
+        grid.innerHTML = vocabSets.map((set, index) => `
+            <div class="set-card ${index === currentSetIndex ? 'active-card' : ''}" onclick="selectSet(${index})">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div class="set-num">${index + 1}</div>
+                    <div>
+                        <h4 style="font-size:0.95rem; color:#1e293b;">${set.name}</h4>
+                        <p style="font-size:0.8rem; color:#64748b;">${set.words.length} từ vựng</p>
+                    </div>
+                </div>
+                <button class="btn-delete-set" onclick="deleteSet(event, ${index})">✕</button>
+            </div>
+        `).join('');
+    }
+
+    function selectSet(index) {
+        currentSetIndex = index;
+        renderSets();
+        document.getElementById('modeSection').style.display = 'block';
+        document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${vocabSets[index].name} (${vocabSets[index].words.length} từ)`;
+        document.getElementById('appendBox').style.display = 'none';
+        document.getElementById('viewWordsBox').style.display = 'none';
+    }
+
+    function deleteSet(event, index) {
+        event.stopPropagation();
+        if (confirm(`Xóa bộ từ "${vocabSets[index].name}"?`)) {
+            vocabSets.splice(index, 1);
+            if (currentSetIndex === index) {
+                currentSetIndex = -1;
+                document.getElementById('modeSection').style.display = 'none';
+            } else if (currentSetIndex > index) {
+                currentSetIndex--;
+            }
+            saveToStorage();
+            renderSets();
+        }
+    }
+
+    function parseVocabText(text) {
+        const words = [];
+        text.split('\n').forEach(line => {
+            const parts = line.split(':');
+            if (parts.length >= 2) {
+                words.push({
+                    en: parts[0].trim(),
+                    ipa: parts[2] ? parts[1].trim() : '',
+                    type: parts[3] ? parts[2].trim() : 'NOUN',
+                    vi: parts[parts.length >= 4 ? 3 : 1].trim()
+                });
+            }
+        });
+        return words;
+    }
+
+    function addNewSet() {
+        const name = document.getElementById('newSetName').value.trim();
+        const text = document.getElementById('newSetVocab').value.trim();
+        if (!name || !text) return alert("Vui lòng nhập tên và từ vựng!");
+
+        const words = parseVocabText(text);
+        if (words.length === 0) return alert("Định dạng từ vựng sai!");
+
+        vocabSets.push({ id: Date.now(), name, words });
+        saveToStorage();
+        renderSets();
+        document.getElementById('newSetName').value = '';
+        document.getElementById('newSetVocab').value = '';
+        alert("Thêm bộ từ mới thành công!");
+    }
+
+    function toggleAppendBox() {
+        const box = document.getElementById('appendBox');
+        document.getElementById('viewWordsBox').style.display = 'none';
+        box.style.display = box.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function toggleViewWordsBox() {
+        if (currentSetIndex === -1) return;
+        const box = document.getElementById('viewWordsBox');
+        document.getElementById('appendBox').style.display = 'none';
+        
+        if (box.style.display === 'block') {
+            box.style.display = 'none';
+        } else {
+            renderViewWordsTable();
+            box.style.display = 'block';
+        }
+    }
+
+    function renderViewWordsTable() {
+        const container = document.getElementById('viewWordsTableContainer');
+        const words = vocabSets[currentSetIndex].words;
+
+        if (words.length === 0) {
+            container.innerHTML = '<p style="font-size:0.85rem; color:#64748b;">Bộ này chưa có từ vựng nào.</p>';
+            return;
+        }
+
+        container.innerHTML = `
+            <table class="vocab-table">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Từ Tiếng Anh</th>
+                        <th>Loại từ & IPA</th>
+                        <th>Nghĩa Tiếng Việt</th>
+                        <th>Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${words.map((w, idx) => `
+                        <tr>
+                            <td style="color:#94a3b8; font-weight:normal;">${idx + 1}</td>
+                            <td>
+                                ${w.en} 
+                                <button class="btn-mini-speak" onclick="speakText('${w.en.replace(/'/g, "\\'")}')">🔊</button>
+                            </td>
+                            <td><span class="type-badge">${w.type || 'NOUN'}</span> ${w.ipa || ''}</td>
+                            <td>${w.vi}</td>
+                            <td>
+                                <button class="btn-mini-del" onclick="deleteWordFromCurrentSet(${idx})" title="Xóa từ này">✕</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+
+    function deleteWordFromCurrentSet(wordIndex) {
+        if (confirm(`Xóa từ "${vocabSets[currentSetIndex].words[wordIndex].en}" khỏi bộ này?`)) {
+            vocabSets[currentSetIndex].words.splice(wordIndex, 1);
+            saveToStorage();
+            renderSets();
+            document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${vocabSets[currentSetIndex].name} (${vocabSets[currentSetIndex].words.length} từ)`;
+            renderViewWordsTable();
+        }
+    }
+
+    function addWordsToCurrentSet() {
+        if (currentSetIndex === -1) return;
+        const text = document.getElementById('appendVocabText').value.trim();
+        if (!text) return alert("Vui lòng nhập từ vựng muốn thêm!");
+
+        const newWords = parseVocabText(text);
+        if (newWords.length === 0) return alert("Định dạng từ vựng chưa đúng!");
+
+        vocabSets[currentSetIndex].words.push(...newWords);
+        saveToStorage();
+        renderSets();
+        
+        document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${vocabSets[currentSetIndex].name} (${vocabSets[currentSetIndex].words.length} từ)`;
+        document.getElementById('appendVocabText').value = '';
+        toggleAppendBox();
+        alert(`Đã thêm ${newWords.length} từ vựng vào bộ "${vocabSets[currentSetIndex].name}"!`);
+    }
+
+    function speakText(text) {
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 0.85;
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    function shuffleArray(array) {
+        let arr = [...array];
+        for (let i = arr.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+    }
+
+    function prepareStudyWords() {
+        const originalWords = vocabSets[currentSetIndex].words;
+        const isShuffle = document.getElementById('shuffleToggle').checked;
+        if (isShuffle) {
+            currentStudyWords = shuffleArray(originalWords);
+        } else {
+            currentStudyWords = [...originalWords];
+        }
+    }
+
+    function startMode(mode) {
+        if (currentSetIndex === -1) return;
+        if (vocabSets[currentSetIndex].words.length === 0) {
+            return alert("Bộ từ này chưa có từ vựng nào!");
+        }
+        currentMode = mode;
+        currentIndex = 0;
+        correctList = [];
+        wrongList = [];
+        
+        prepareStudyWords();
+
+        hideFeedbackBanner();
+        document.getElementById('modalHeader').style.display = 'flex';
+        document.getElementById('studyModal').style.display = 'block';
+        renderCurrentQuestion();
+    }
+
+    function closeModal() {
+        document.getElementById('studyModal').style.display = 'none';
+        hideFeedbackBanner();
+        window.speechSynthesis.cancel();
+    }
+
+    function restartMode() {
+        currentIndex = 0;
+        correctList = [];
+        wrongList = [];
+        prepareStudyWords();
+        hideFeedbackBanner();
+        document.getElementById('modalHeader').style.display = 'flex';
+        renderCurrentQuestion();
+    }
+
+    function updateHeaderProgress() {
+        const total = currentStudyWords.length;
+        document.getElementById('progressText').innerText = `Câu ${currentIndex + 1} / ${total}`;
+        document.getElementById('progressFill').style.width = `${((currentIndex + 1) / total) * 100}%`;
+    }
+
+    function renderCurrentQuestion() {
+        hideFeedbackBanner();
+        isAnswered = false;
+        const total = currentStudyWords.length;
+
+        if (currentIndex >= total) {
+            if (currentMode === 'flashcard') {
+                closeModal();
+            } else {
+                renderSummaryView();
+            }
+            return;
+        }
+
+        updateHeaderProgress();
+        revealedLength = 0;
+
+        if (currentMode === 'flashcard') renderFlashcardView();
+        else if (currentMode === 'quiz') renderQuizView();
+        else if (currentMode === 'listening') renderListeningView();
+    }
+
+    /* --- 1. FLASHCARD LẬT 3D --- */
+    function renderFlashcardView() {
+        const word = currentStudyWords[currentIndex];
+        const container = document.getElementById('studyContent');
+
+        container.innerHTML = `
+            <div class="scene" onclick="toggleCardFlip()">
+                <div class="flashcard-3d" id="card3d">
+                    <div class="card-face card-front">
+                        <span style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">TIẾNG ANH</span>
+                        <h2 style="font-size: 2.2rem; margin: 15px 0;">${word.en}</h2>
+                        <p style="font-family: monospace;">${word.ipa || ''}</p>
+                        <div class="card-hint-text">👆 Nhấn Space hoặc click để lật lại</div>
+                    </div>
+                    <div class="card-face card-back">
+                        <span style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">NGHĨA TIẾNG VIỆT</span>
+                        <h2 style="font-size: 1.8rem; margin: 15px 0;">${word.vi}</h2>
+                        <div class="card-hint-text">👆 Nhấn Space hoặc click để lật mặt trước</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flashcard-controls">
+                <button class="btn-control btn-nav" onclick="prevCard()">‹ Trước</button>
+                <button class="btn-speak" onclick="speakText('${word.en}')">🔊 Nghe phát âm (Tab)</button>
+                <button class="btn-control btn-nav" onclick="nextCard()">Tiếp ›</button>
+            </div>
+        `;
+        speakText(word.en);
+    }
+
+    function toggleCardFlip() {
+        const el = document.getElementById('card3d');
+        if (el) el.classList.toggle('is-flipped');
+    }
+    function nextCard() {
+        currentIndex++;
+        renderCurrentQuestion();
+    }
+    function prevCard() {
+        if (currentIndex > 0) currentIndex--;
+        renderCurrentQuestion();
+    }
+
+    /* --- 2. QUIZ MODE --- */
+    function renderQuizView() {
+        const word = currentStudyWords[currentIndex];
+        const container = document.getElementById('studyContent');
+
+        let options = [word.vi];
+        let otherWords = currentStudyWords.filter(w => w.vi !== word.vi).sort(() => 0.5 - Math.random());
+        for (let i = 0; i < Math.min(3, otherWords.length); i++) options.push(otherWords[i].vi);
+        options.sort(() => 0.5 - Math.random());
+
+        container.innerHTML = `
+            <div class="quiz-word-box">
+                <div class="quiz-word">${word.en}</div>
+                <div>
+                    <button onclick="speakText('${word.en}')" style="background:none; border:none; cursor:pointer; color:#0284c7; font-size:1.2rem;">🔊</button>
+                    <span class="type-badge">${word.type || 'NOUN'}</span>
+                    <span class="ipa-text">${word.ipa || ''}</span>
+                </div>
+            </div>
+
+            <div class="quiz-grid">
+                ${options.map((opt, idx) => `
+                    <div class="quiz-opt" id="opt-${idx}" onclick="checkQuizAnswer(this, '${opt.replace(/'/g, "\\'")}', '${word.vi.replace(/'/g, "\\'")}')">
+                        <div class="opt-num">${idx + 1}</div>
+                        <div>${opt}</div>
+                    </div>
+                `).join('')}
+            </div>
+            <div style="text-align:center; font-size:0.85rem; color:#94a3b8; margin-top:10px;">Phím 1-4: chọn đáp án | Tab: nghe lại từ</div>
+        `;
+        speakText(word.en);
+    }
+
+    function checkQuizAnswer(element, selected, correct) {
+        if (isAnswered) return;
+        isAnswered = true;
+
+        const word = currentStudyWords[currentIndex];
+        const allOptions = document.querySelectorAll('.quiz-opt');
+
+        if (selected === correct) {
+            element.classList.add('opt-correct');
+            correctList.push(word);
+            showFeedbackBanner(true, word);
+        } else {
+            element.classList.add('opt-wrong');
+            allOptions.forEach(opt => {
+                if (opt.innerText.includes(correct)) {
+                    opt.classList.add('opt-correct');
+                }
+            });
+            wrongList.push(word);
+            showFeedbackBanner(false, word);
+        }
+    }
+
+    /* --- 3. LISTENING MODE --- */
+    function renderListeningView() {
+        const word = currentStudyWords[currentIndex];
+        const container = document.getElementById('studyContent');
+
+        let maskDisplay = "";
+        for (let i = 0; i < word.en.length; i++) {
+            const char = word.en[i];
+            if (char === ' ') {
+                maskDisplay += "  ";
+            } else if (i < revealedLength) {
+                maskDisplay += char;
+            } else {
+                maskDisplay += "_";
+            }
+        }
+
+        container.innerHTML = `
+            <div class="listen-box">
+                <div class="vi-meaning-title">${word.vi}</div>
+                <div>
+                    <button onclick="speakText('${word.en}')" style="background:none; border:none; cursor:pointer; color:#0284c7; font-size:1.2rem; vertical-align:middle; margin-right:5px;">🔊</button>
+                    <span class="type-badge">${word.type || 'NOUN'}</span>
+                </div>
+
+                <div class="mask-word-display">${maskDisplay}</div>
+
+                <div>
+                    <input type="text" id="listenInput" class="input-listen-styled" placeholder="Gõ từ tiếng Anh..." oninput="checkTypingRealtime('${word.en.replace(/'/g, "\\'")}')" onkeypress="if(event.key==='Enter') submitListenAnswer('${word.en.replace(/'/g, "\\'")}')">
+                </div>
+
+                <div id="typingFeedback" class="typing-feedback"></div>
+
+                <div class="listen-actions-bar">
+                    <button class="btn-action-tool" onclick="speakText('${word.en.replace(/'/g, "\\'")}')">
+                        🔊 Nghe lại
+                        <span class="tool-shortcut">Tab</span>
+                    </button>
+                    <button class="btn-action-tool" onclick="giveHint('${word.en.replace(/'/g, "\\'")}')">
+                        🎯 Gợi ý (${revealedLength}/${word.en.length})
+                        <span class="tool-shortcut">Ctrl + Space</span>
+                    </button>
+                    <button class="btn-submit-green" onclick="submitListenAnswer('${word.en.replace(/'/g, "\\'")}')">
+                        Kiểm tra
+                        <div class="tool-shortcut" style="color:rgba(255,255,255,0.8);">Enter</div>
+                    </button>
+                </div>
+            </div>
+        `;
+
+        speakText(word.en);
+
+        setTimeout(() => {
+            const inputEl = document.getElementById('listenInput');
+            if (inputEl) inputEl.focus();
+        }, 50);
+    }
+
+    function giveHint(correctWord) {
+        if (isAnswered) return;
+        if (revealedLength < correctWord.length) {
+            revealedLength++;
+            renderListeningView();
+        }
+    }
+
+    function checkTypingRealtime(target) {
+        if (isAnswered) return;
+        const val = document.getElementById('listenInput').value.toLowerCase();
+        const feedback = document.getElementById('typingFeedback');
+
+        if (val === '') {
+            feedback.innerHTML = '';
+            return;
+        }
+
+        if (target.toLowerCase().startsWith(val)) {
+            feedback.className = 'typing-feedback text-success';
+            feedback.innerText = '👍 Đang đúng hướng...';
+        } else {
+            feedback.className = 'typing-feedback text-error';
+            feedback.innerText = '⚠️ Kiểm tra lại cách viết';
+        }
+    }
+
+    function submitListenAnswer(correctWord) {
+        if (isAnswered) {
+            proceedToNextQuestion();
+            return;
+        }
+
+        const inputEl = document.getElementById('listenInput');
+        const inputVal = inputEl.value.trim().toLowerCase();
+        const word = currentStudyWords[currentIndex];
+
+        isAnswered = true;
+        inputEl.disabled = true;
+
+        if (inputVal === correctWord.toLowerCase()) {
+            inputEl.classList.add('correct-border');
+            correctList.push(word);
+            showFeedbackBanner(true, word);
+        } else {
+            inputEl.classList.add('wrong-border');
+            wrongList.push(word);
+            showFeedbackBanner(false, word);
+        }
+    }
+
+    function showFeedbackBanner(isCorrect, word) {
+        const banner = document.getElementById('feedbackBanner');
+        banner.className = `feedback-banner ${isCorrect ? 'bg-correct' : 'bg-wrong'}`;
+        
+        document.getElementById('fbStatusTitle').innerHTML = isCorrect 
+            ? '✓ Chính xác!' 
+            : '✕ Chưa chính xác!';
+        
+        document.getElementById('fbWordEn').innerText = word.en;
+        document.getElementById('fbWordType').innerText = `(${word.type ? word.type.toLowerCase() : 'noun'})`;
+        document.getElementById('fbWordIpa').innerText = word.ipa ? `//${word.ipa.replace(/\//g,'')}//` : '';
+        document.getElementById('fbWordVi').innerText = `Nghĩa: ${word.vi}`;
+        document.getElementById('fbSpeakBtn').onclick = () => speakText(word.en);
+
+        banner.style.display = 'flex';
+        speakText(word.en);
+    }
+
+    function hideFeedbackBanner() {
+        document.getElementById('feedbackBanner').style.display = 'none';
+    }
+
+    function proceedToNextQuestion() {
+        currentIndex++;
+        renderCurrentQuestion();
+    }
+
+    /* --- 4. BẢNG TỔNG KẾT KẾT QUẢ --- */
+    function renderSummaryView() {
+        document.getElementById('modalHeader').style.display = 'none';
+        const container = document.getElementById('studyContent');
+        const total = currentStudyWords.length;
+        const percent = Math.round((correctList.length / total) * 100);
+
+        const renderTableRows = (list) => list.map(w => `
+            <tr>
+                <td>${w.en} <button class="btn-mini-speak" onclick="speakText('${w.en.replace(/'/g, "\\'")}')">🔊</button></td>
+                <td><span class="type-badge">${w.type || 'NOUN'}</span> ${w.ipa || ''}</td>
+                <td>${w.vi}</td>
+            </tr>
+        `).join('');
+
+        container.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; border:2px solid #e2e8f0; border-radius:20px; padding:20px 30px; margin-bottom:25px; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:15px;">
+                    <div style="width:75px; height:75px; border-radius:50%; border:4px solid ${percent >= 70 ? '#22c55e' : '#ef4444'}; color:${percent >= 70 ? '#22c55e' : '#ef4444'}; font-weight:800; font-size:1.3rem; display:flex; align-items:center; justify-content:center;">${percent}%</div>
+                    <div>
+                        <h3 style="font-size:1.3rem; font-weight:800; color:#0f172a;">${percent >= 70 ? 'Xuất sắc!' : 'Cần cố gắng thêm!'}</h3>
+                        <p style="color:#64748b; font-size:0.95rem;">Đã trả lời đúng ${correctList.length} / ${total} từ vựng</p>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px;">
+                    <button class="btn-primary" onclick="restartMode()">🔄 Học lại</button>
+                    <button class="btn-action-tool" onclick="closeModal()">Thoát</button>
+                </div>
+            </div>
+
+            ${correctList.length > 0 ? `
+                <div style="border-radius:20px; padding:20px; margin-bottom:20px; border:2px solid #bbf7d0; background:#f0fdf4;">
+                    <div style="font-size:1.1rem; font-weight:800; margin-bottom:12px; color:#16a34a;">✓ Các từ đã thuộc (${correctList.length})</div>
+                    <table class="vocab-table">
+                        <thead>
+                            <tr>
+                                <th>Từ tiếng Anh</th>
+                                <th>Phát âm</th>
+                                <th>Nghĩa tiếng Việt</th>
+                            </tr>
+                        </thead>
+                        <tbody>${renderTableRows(correctList)}</tbody>
+                    </table>
+                </div>
+            ` : ''}
+
+            ${wrongList.length > 0 ? `
+                <div style="border-radius:20px; padding:20px; margin-bottom:20px; border:2px solid #fecaca; background:#fef2f2;">
+                    <div style="font-size:1.1rem; font-weight:800; margin-bottom:12px; color:#dc2626;">✕ Các từ cần ôn lại (${wrongList.length})</div>
+                    <table class="vocab-table">
+                        <thead>
+                            <tr>
+                                <th>Từ tiếng Anh</th>
+                                <th>Phát âm</th>
+                                <th>Nghĩa tiếng Việt</th>
+                            </tr>
+                        </thead>
+                        <tbody>${renderTableRows(wrongList)}</tbody>
+                    </table>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    /* --- LẮNG NGHE PHÍM TẮT TOÀN CỤC --- */
+    document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('studyModal');
+        if (modal.style.display !== 'block') return;
+
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            if (currentStudyWords[currentIndex]) {
+                speakText(currentStudyWords[currentIndex].en);
+            }
+            return;
+        }
+
+        const banner = document.getElementById('feedbackBanner');
+        if (banner.style.display === 'flex' && e.key === 'Enter') {
+            e.preventDefault();
+            proceedToNextQuestion();
+            return;
+        }
+
+        if (currentMode === 'flashcard') {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleCardFlip();
+            } else if (e.key === 'ArrowRight') {
+                nextCard();
+            } else if (e.key === 'ArrowLeft') {
+                prevCard();
+            }
+        } else if (currentMode === 'quiz') {
+            if (['1', '2', '3', '4'].includes(e.key) && !isAnswered) {
+                const optIndex = parseInt(e.key) - 1;
+                const optEl = document.getElementById(`opt-${optIndex}`);
+                if (optEl) optEl.click();
+            }
+        } else if (currentMode === 'listening') {
+            if (e.ctrlKey && e.code === 'Space') {
+                e.preventDefault();
+                const word = currentStudyWords[currentIndex];
+                if (word) giveHint(word.en);
+            }
+        }
+    });
+
+    renderSets();
+</script>
+</body>
+</html>
