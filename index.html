@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-	<link rel="shortcut icon" href="favicon.png" type="image/x-icon">
+    <link rel="shortcut icon" href="favicon.png" type="image/x-icon">
     <link rel="icon" href="favicon.png" type="image/png">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống học cho lười </title> 
+    <title>Hệ thống học cho lười</title> 
     
     <!-- Firebase SDK Compat -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -128,6 +128,8 @@
         .input-listen-styled.correct-border { border-color: #22c55e; background: #f0fdf4; }
         .input-listen-styled.wrong-border { border-color: #ef4444; background: #fef2f2; }
         .typing-feedback { height: 24px; font-size: 0.9rem; font-weight: 600; margin: 8px 0 15px 0; }
+        .text-success { color: #16a34a; }
+        .text-error { color: #dc2626; }
         
         .listen-actions-bar { display: flex; justify-content: center; align-items: center; gap: 15px; flex-wrap: wrap; }
         .btn-action-tool { background: white; border: 1.5px solid #e2e8f0; border-radius: 30px; padding: 12px 24px; font-weight: 700; color: #334155; cursor: pointer; font-size: 0.95rem; display: flex; flex-direction: column; align-items: center; transition: 0.2s; }
@@ -275,19 +277,46 @@
     <button class="btn-next-step" onclick="proceedToNextQuestion()">Tiếp tục (Enter) ›</button>
 </div>
 
+<!-- POPUP HỎI KEY / ĐĂNG KÝ KEY MỚI -->
+<div id="keyAuthModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
+    <div style="background: white; padding: 30px; border-radius: 24px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
+        <div style="font-size: 3rem; margin-bottom: 10px;">🔑</div>
+        <h3 style="margin-bottom: 8px; color: #1e293b; font-size: 1.3rem;">Hệ Thống Học Từ Vựng</h3>
+        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 20px;">Vui lòng chọn trạng thái tài khoản của bạn:</p>
+
+        <!-- Nút chuyển Tab Đã có Key / Chưa có Key -->
+        <div style="display: flex; gap: 8px; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 12px;">
+            <button id="tabHaveKeyBtn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: white; color: #4318ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" onclick="switchAuthTab('haveKey')">Đã có Key</button>
+            <button id="tabNewKeyBtn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: transparent; color: #64748b;" onclick="switchAuthTab('newKey')">Chưa có (Tạo mới)</button>
+        </div>
+
+        <!-- Khung 1: Đã có Key -->
+        <div id="formHaveKey">
+            <input type="text" id="modalExistKeyInput" class="input-key" placeholder="Nhập Key của bạn..." style="width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 1rem; border: 2px solid #cbd5e1;" onkeypress="if(event.key==='Enter') loginWithKey()">
+            <button class="btn-primary" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px;" onclick="loginWithKey()">Nhập Key & Vào Học</button>
+        </div>
+
+        <!-- Khung 2: Đăng ký Key mới -->
+        <div id="formNewKey" style="display: none;">
+            <input type="text" id="modalNewKeyInput" class="input-key" placeholder="Tạo Key mới (VD: tuan2026)..." style="width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 1rem; border: 2px solid #cbd5e1;" onkeypress="if(event.key==='Enter') registerNewKey()">
+            <button class="btn-secondary" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px; background: #16a34a;" onclick="registerNewKey()">Đăng Ký & Tạo Key Mới</button>
+        </div>
+    </div>
+</div>
+
 <script>
     // ----------------------------------------------------
     // ☁️ FIREBASE CONFIGURATION
     // ----------------------------------------------------
-   const firebaseConfig = {
-  apiKey: "AIzaSyCR63oXNGTF7ZZijfFN9sMwJRE-4ZvphzU",
-  authDomain: "engnoat.firebaseapp.com",
-  projectId: "engnoat",
-  storageBucket: "engnoat.firebasestorage.app",
-  messagingSenderId: "475790738481",
-  appId: "1:475790738481:web:cad962a084135aa49b4110",
-  measurementId: "G-18GFQ7D8G1"
-};
+    const firebaseConfig = {
+        apiKey: "AIzaSyCR63oXNGTF7ZZijfFN9sMwJRE-4ZvphzU",
+        authDomain: "engnoat.firebaseapp.com",
+        projectId: "engnoat",
+        storageBucket: "engnoat.firebasestorage.app",
+        messagingSenderId: "475790738481",
+        appId: "1:475790738481:web:cad962a084135aa49b4110",
+        measurementId: "G-18GFQ7D8G1"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
@@ -315,158 +344,157 @@
     let currentStudyWords = [];
     let isAnswered = false;
     let revealedLength = 0;
+    let correctList = [];
+    let wrongList = [];
 
-  window.addEventListener('DOMContentLoaded', async () => {
-    if (currentKey) {
-        document.getElementById('keyAuthModal').style.display = 'none';
-        document.getElementById('keyInputZone').style.display = 'none';
-        document.getElementById('activeKeyZone').style.display = 'flex';
-        document.getElementById('currentKeyBadge').innerText = currentKey;
-        await loadDataFromKey(currentKey);
-    } else {
-        document.getElementById('keyAuthModal').style.display = 'flex';
-    }
-});
-
-function searchDictionary() {
-    const keyword = document.getElementById('dictSearchInput').value.trim().toLowerCase();
-    const resultsContainer = document.getElementById('dictResultsBox');
-
-    if (!keyword) {
-        resultsContainer.innerHTML = '';
-        return;
-    }
-
-    let matches = [];
-    vocabSets.forEach(set => {
-        set.words.forEach(w => {
-            if (w.en.toLowerCase().includes(keyword) || w.vi.toLowerCase().includes(keyword)) {
-                matches.push({ ...w, setName: set.name });
-            }
-        });
+    window.addEventListener('DOMContentLoaded', async () => {
+        if (currentKey) {
+            document.getElementById('keyAuthModal').style.display = 'none';
+            document.getElementById('keyInputZone').style.display = 'none';
+            document.getElementById('activeKeyZone').style.display = 'flex';
+            document.getElementById('currentKeyBadge').innerText = currentKey;
+            await loadDataFromKey(currentKey);
+        } else {
+            document.getElementById('keyAuthModal').style.display = 'flex';
+        }
     });
 
-    if (matches.length === 0) {
-        resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#64748b;">Không tìm thấy từ vựng khớp với từ khóa.</p>';
-        return;
-    }
+    function searchDictionary() {
+        const keyword = document.getElementById('dictSearchInput').value.trim().toLowerCase();
+        const resultsContainer = document.getElementById('dictResultsBox');
 
-    resultsContainer.innerHTML = `
-        <table class="vocab-table">
-            <thead>
-                <tr>
-                    <th>Từ Tiếng Anh</th>
-                    <th>Loại từ & IPA</th>
-                    <th>Nghĩa Tiếng Việt</th>
-                    <th>Thuộc Bộ Từ</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${matches.map(w => `
+        if (!keyword) {
+            resultsContainer.innerHTML = '';
+            return;
+        }
+
+        let matches = [];
+        vocabSets.forEach(set => {
+            set.words.forEach(w => {
+                if (w.en.toLowerCase().includes(keyword) || w.vi.toLowerCase().includes(keyword)) {
+                    matches.push({ ...w, setName: set.name });
+                }
+            });
+        });
+
+        if (matches.length === 0) {
+            resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#64748b;">Không tìm thấy từ vựng khớp với từ khóa.</p>';
+            return;
+        }
+
+        resultsContainer.innerHTML = `
+            <table class="vocab-table">
+                <thead>
                     <tr>
-                        <td>
-                            <b>${w.en}</b> 
-                            <button class="btn-mini-speak" onclick="speakText('${w.en.replace(/'/g, "\\'")}')">🔊</button>
-                        </td>
-                        <td><span class="type-badge">${w.type || 'NOUN'}</span> ${w.ipa || ''}</td>
-                        <td>${w.vi}</td>
-                        <td style="color:#64748b; font-size:0.85rem;">${w.setName}</td>
+                        <th>Từ Tiếng Anh</th>
+                        <th>Loại từ & IPA</th>
+                        <th>Nghĩa Tiếng Việt</th>
+                        <th>Thuộc Bộ Từ</th>
                     </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
-}
-
-// Chuyển đổi qua lại giữa Đã có Key và Đăng ký mới
-function switchAuthTab(tab) {
-    const btnHave = document.getElementById('tabHaveKeyBtn');
-    const btnNew = document.getElementById('tabNewKeyBtn');
-    const formHave = document.getElementById('formHaveKey');
-    const formNew = document.getElementById('formNewKey');
-
-    if (tab === 'haveKey') {
-        btnHave.style.background = 'white';
-        btnHave.style.color = '#4318ff';
-        btnHave.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-        btnNew.style.background = 'transparent';
-        btnNew.style.color = '#64748b';
-        btnNew.style.boxShadow = 'none';
-        formHave.style.display = 'block';
-        formNew.style.display = 'none';
-    } else {
-        btnNew.style.background = 'white';
-        btnNew.style.color = '#16a34a';
-        btnNew.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
-        btnHave.style.background = 'transparent';
-        btnHave.style.color = '#64748b';
-        btnHave.style.boxShadow = 'none';
-        formNew.style.display = 'block';
-        formHave.style.display = 'none';
+                </thead>
+                <tbody>
+                    ${matches.map(w => `
+                        <tr>
+                            <td>
+                                <b>${w.en}</b> 
+                                <button class="btn-mini-speak" onclick="speakText('${w.en.replace(/'/g, "\\'")}')">🔊</button>
+                            </td>
+                            <td><span class="type-badge">${w.type || 'NOUN'}</span> ${w.ipa || ''}</td>
+                            <td>${w.vi}</td>
+                            <td style="color:#64748b; font-size:0.85rem;">${w.setName}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
     }
-}
 
-// Xử lý ĐĂNG NHẬP bằng Key đã có sẵn
-async function loginWithKey() {
-    const keyVal = document.getElementById('modalExistKeyInput').value.trim().toLowerCase();
-    if (!keyVal) return alert("Vui lòng nhập Mã Key!");
-    const sanitizedKey = keyVal.replace(/[^a-z0-9_]/g, '');
+    function switchAuthTab(tab) {
+        const btnHave = document.getElementById('tabHaveKeyBtn');
+        const btnNew = document.getElementById('tabNewKeyBtn');
+        const formHave = document.getElementById('formHaveKey');
+        const formNew = document.getElementById('formNewKey');
 
-    try {
-        const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
-        const doc = await docRef.get();
-
-        if (!doc.exists) {
-            return alert(`⚠️ Key "${sanitizedKey}" không tồn tại trên hệ thống!\nVui lòng kiểm tra lại hoặc chọn nút "Chưa có (Tạo mới)".`);
+        if (tab === 'haveKey') {
+            btnHave.style.background = 'white';
+            btnHave.style.color = '#4318ff';
+            btnHave.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            btnNew.style.background = 'transparent';
+            btnNew.style.color = '#64748b';
+            btnNew.style.boxShadow = 'none';
+            formHave.style.display = 'block';
+            formNew.style.display = 'none';
+        } else {
+            btnNew.style.background = 'white';
+            btnNew.style.color = '#16a34a';
+            btnNew.style.boxShadow = '0 2px 4px rgba(0,0,0,0.05)';
+            btnHave.style.background = 'transparent';
+            btnHave.style.color = '#64748b';
+            btnHave.style.boxShadow = 'none';
+            formNew.style.display = 'block';
+            formHave.style.display = 'none';
         }
-
-        currentKey = sanitizedKey;
-        localStorage.setItem('activeVocabKey', currentKey);
-        document.getElementById('keyAuthModal').style.display = 'none';
-        document.getElementById('keyInputZone').style.display = 'none';
-        document.getElementById('activeKeyZone').style.display = 'flex';
-        document.getElementById('currentKeyBadge').innerText = currentKey;
-
-        vocabSets = doc.data().vocabSets || defaultSets;
-        renderSets();
-        document.getElementById('syncStatusNote').innerHTML = `✅ Đã kết nối thành công Key "<b>${currentKey}</b>"!`;
-    } catch (e) {
-        alert("Lỗi kết nối Firebase: " + e.message);
     }
-}
 
-// Xử lý ĐĂNG KÝ Key mới
-async function registerNewKey() {
-    const keyVal = document.getElementById('modalNewKeyInput').value.trim().toLowerCase();
-    if (!keyVal) return alert("Vui lòng nhập Mã Key bạn muốn tạo!");
-    const sanitizedKey = keyVal.replace(/[^a-z0-9_]/g, '');
-    if (sanitizedKey.length < 3) return alert("Mã Key phải có từ 3 ký tự trở lên (không dấu, không khoảng trắng)!");
+    async function loginWithKey() {
+        const keyVal = document.getElementById('modalExistKeyInput').value.trim().toLowerCase();
+        if (!keyVal) return alert("Vui lòng nhập Mã Key!");
+        const sanitizedKey = keyVal.replace(/[^a-z0-9_]/g, '');
 
-    try {
-        const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
-        const doc = await docRef.get();
+        try {
+            const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
+            const doc = await docRef.get();
 
-        if (doc.exists) {
-            return alert(`⚠️ Mã Key "${sanitizedKey}" đã được người khác sử dụng!\nVui lòng đặt một tên Key khác.`);
+            if (!doc.exists) {
+                return alert(`⚠️ Key "${sanitizedKey}" không tồn tại trên hệ thống!\nVui lòng kiểm tra lại hoặc chọn nút "Chưa có (Tạo mới)".`);
+            }
+
+            currentKey = sanitizedKey;
+            localStorage.setItem('activeVocabKey', currentKey);
+            document.getElementById('keyAuthModal').style.display = 'none';
+            document.getElementById('keyInputZone').style.display = 'none';
+            document.getElementById('activeKeyZone').style.display = 'flex';
+            document.getElementById('currentKeyBadge').innerText = currentKey;
+
+            vocabSets = doc.data().vocabSets || defaultSets;
+            renderSets();
+            document.getElementById('syncStatusNote').innerHTML = `✅ Đã kết nối thành công Key "<b>${currentKey}</b>"!`;
+        } catch (e) {
+            alert("Lỗi kết nối Firebase: " + e.message);
         }
-
-        vocabSets = defaultSets;
-        await docRef.set({ vocabSets: defaultSets, createdAt: new Date() });
-
-        currentKey = sanitizedKey;
-        localStorage.setItem('activeVocabKey', currentKey);
-        document.getElementById('keyAuthModal').style.display = 'none';
-        document.getElementById('keyInputZone').style.display = 'none';
-        document.getElementById('activeKeyZone').style.display = 'flex';
-        document.getElementById('currentKeyBadge').innerText = currentKey;
-
-        renderSets();
-        alert(`🎉 Đã tạo thành công Key mới: "${sanitizedKey}"!`);
-        document.getElementById('syncStatusNote').innerHTML = `🎉 Đã khởi tạo kho dữ liệu cho Key "<b>${currentKey}</b>"!`;
-    } catch (e) {
-        alert("Lỗi khi tạo Key trên Firebase: " + e.message);
     }
-}
+
+    async function registerNewKey() {
+        const keyVal = document.getElementById('modalNewKeyInput').value.trim().toLowerCase();
+        if (!keyVal) return alert("Vui lòng nhập Mã Key bạn muốn tạo!");
+        const sanitizedKey = keyVal.replace(/[^a-z0-9_]/g, '');
+        if (sanitizedKey.length < 3) return alert("Mã Key phải có từ 3 ký tự trở lên (không dấu, không khoảng trắng)!");
+
+        try {
+            const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
+            const doc = await docRef.get();
+
+            if (doc.exists) {
+                return alert(`⚠️ Mã Key "${sanitizedKey}" đã được người khác sử dụng!\nVui lòng đặt một tên Key khác.`);
+            }
+
+            vocabSets = defaultSets;
+            await docRef.set({ vocabSets: defaultSets, createdAt: new Date() });
+
+            currentKey = sanitizedKey;
+            localStorage.setItem('activeVocabKey', currentKey);
+            document.getElementById('keyAuthModal').style.display = 'none';
+            document.getElementById('keyInputZone').style.display = 'none';
+            document.getElementById('activeKeyZone').style.display = 'flex';
+            document.getElementById('currentKeyBadge').innerText = currentKey;
+
+            renderSets();
+            alert(`🎉 Đã tạo thành công Key mới: "${sanitizedKey}"!`);
+            document.getElementById('syncStatusNote').innerHTML = `🎉 Đã khởi tạo kho dữ liệu cho Key "<b>${currentKey}</b>"!`;
+        } catch (e) {
+            alert("Lỗi khi tạo Key trên Firebase: " + e.message);
+        }
+    }
 
     async function applyKey() {
         const keyVal = document.getElementById('userKeyInput').value.trim().toLowerCase();
@@ -715,318 +743,395 @@ async function registerNewKey() {
     // ----------------------------------------------------
     // LOGIC CÁC MÀN HÌNH HỌC (FLASHCARD, QUIZ, LISTENING)
     // ----------------------------------------------------
-    function startMode(mode) {
-        if (currentSetIndex === -1) return alert("Vui lòng chọn 1 bộ từ vựng!");
-        const words = vocabSets[currentSetIndex].words;
-        if (!words || words.length === 0) return alert("Bộ từ này chưa có dữ liệu!");
 
-        currentMode = mode;
+    function prepareStudyWords() {
+        if (currentSetIndex === -1) return;
+        const words = [...vocabSets[currentSetIndex].words];
         const isShuffle = document.getElementById('shuffleToggle').checked;
-        currentStudyWords = isShuffle ? shuffleArray(words) : [...words];
-        currentIndex = 0;
-
-        document.getElementById('studyModal').style.display = 'block';
-        hideFeedback();
-        loadCurrentQuestion();
+        currentStudyWords = isShuffle ? shuffleArray(words) : words;
     }
 
-    function restartMode() {
-        startMode(currentMode);
+    function startMode(mode) {
+        if (currentSetIndex === -1) return;
+        if (vocabSets[currentSetIndex].words.length === 0) {
+            return alert("Bộ từ này chưa có từ vựng nào!");
+        }
+        currentMode = mode;
+        currentIndex = 0;
+        correctList = [];
+        wrongList = [];
+        
+        prepareStudyWords();
+
+        hideFeedbackBanner();
+        document.getElementById('modalHeader').style.display = 'flex';
+        document.getElementById('studyModal').style.display = 'block';
+        renderCurrentQuestion();
     }
 
     function closeModal() {
         document.getElementById('studyModal').style.display = 'none';
-        hideFeedback();
+        hideFeedbackBanner();
+        window.speechSynthesis.cancel();
     }
 
-    function updateProgressBar() {
+    function restartMode() {
+        currentIndex = 0;
+        correctList = [];
+        wrongList = [];
+        prepareStudyWords();
+        hideFeedbackBanner();
+        document.getElementById('modalHeader').style.display = 'flex';
+        renderCurrentQuestion();
+    }
+
+    function updateHeaderProgress() {
         const total = currentStudyWords.length;
-        const current = currentIndex + 1;
-        document.getElementById('progressText').innerText = `Câu ${current} / ${total}`;
-        document.getElementById('progressFill').style.width = `${(current / total) * 100}%`;
+        document.getElementById('progressText').innerText = `Câu ${currentIndex + 1} / ${total}`;
+        document.getElementById('progressFill').style.width = `${((currentIndex + 1) / total) * 100}%`;
     }
 
-    function loadCurrentQuestion() {
-        if (currentIndex >= currentStudyWords.length) {
-            document.getElementById('studyContent').innerHTML = `
-                <div style="text-align:center; padding: 40px 0;">
-                    <h2 style="color:#22c55e; font-size:2rem; margin-bottom:15px;">🎉 Chúc mừng!</h2>
-                    <p style="font-size:1.1rem; color:#475569; margin-bottom:20px;">Bạn đã hoàn thành xong bộ từ vựng này.</p>
-                    <button class="btn-primary" onclick="restartMode()">Học Lại Bộ Này</button>
-                    <button class="btn-secondary" style="margin-left:10px;" onclick="closeModal()">Thoát Màn Hình</button>
-                </div>
-            `;
-            hideFeedback();
+    function renderCurrentQuestion() {
+        hideFeedbackBanner();
+        isAnswered = false;
+        const total = currentStudyWords.length;
+
+        if (currentIndex >= total) {
+            if (currentMode === 'flashcard') {
+                closeModal();
+            } else {
+                renderSummaryView();
+            }
             return;
         }
 
-        updateProgressBar();
-        isAnswered = false;
-        hideFeedback();
+        updateHeaderProgress();
+        revealedLength = 0;
 
-        if (currentMode === 'flashcard') renderFlashcard();
-        else if (currentMode === 'quiz') renderQuiz();
-        else if (currentMode === 'listening') renderListening();
+        if (currentMode === 'flashcard') renderFlashcardView();
+        else if (currentMode === 'quiz') renderQuizView();
+        else if (currentMode === 'listening') renderListeningView();
     }
 
-    /* 1. FLASHCARD LOGIC */
-    function renderFlashcard() {
+    function renderSummaryView() {
+        hideFeedbackBanner();
+        document.getElementById('modalHeader').style.display = 'none';
+        const total = currentStudyWords.length;
+        const correctCount = correctList.length;
+        const wrongCount = wrongList.length;
+
+        const container = document.getElementById('studyContent');
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px 10px;">
+                <div style="font-size: 3.5rem; margin-bottom: 10px;">🎉</div>
+                <h2 style="color: #1e293b; margin-bottom: 10px;">Hoàn thành bài học!</h2>
+                <p style="color: #64748b; font-size: 1rem; margin-bottom: 20px;">
+                    Kết quả: <b style="color: #22c55e;">${correctCount} đúng</b> / <b style="color: #ef4444;">${wrongCount} sai</b> (Tổng: ${total})
+                </p>
+
+                ${wrongCount > 0 ? `
+                    <div style="text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; margin-bottom: 20px; max-height: 200px; overflow-y: auto;">
+                        <h4 style="color: #ef4444; margin-bottom: 10px;">Các từ cần xem lại:</h4>
+                        <ul style="padding-left: 20px; color: #334155;">
+                            ${wrongList.map(w => `<li><b>${w.en}</b> (${w.ipa || ''}) - ${w.vi}</li>`).join('')}
+                        </ul>
+                    </div>
+                ` : '<p style="color: #15803d; font-weight: bold; margin-bottom: 20px;">Tuyệt vời! Bạn trả lời đúng toàn bộ từ.</p>'}
+
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button class="btn-primary" onclick="restartMode()">🔄 Luyện lại bộ này</button>
+                    <button class="btn-secondary" style="background: #64748b;" onclick="closeModal()">Đóng</button>
+                </div>
+            </div>
+        `;
+    }
+
+    /* --- 1. FLASHCARD LẬT 3D --- */
+    function renderFlashcardView() {
         const word = currentStudyWords[currentIndex];
         const container = document.getElementById('studyContent');
 
         container.innerHTML = `
-            <div class="scene" onclick="flipCard(this)">
-                <div class="flashcard-3d" id="fcCard">
+            <div class="scene" onclick="toggleCardFlip()">
+                <div class="flashcard-3d" id="card3d">
                     <div class="card-face card-front">
-                        <span class="type-badge" style="background:rgba(255,255,255,0.2); color:white; margin-bottom:10px;">${word.type}</span>
-                        <h2 style="font-size:2.4rem; margin-bottom:5px;">${word.en}</h2>
-                        <p style="font-size:1.1rem; opacity:0.9;">${word.ipa}</p>
-                        <span class="card-hint-text">💡 Nhấp vào thẻ để lật xem nghĩa</span>
+                        <span style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">TIẾNG ANH</span>
+                        <h2 style="font-size: 2.2rem; margin: 15px 0;">${word.en}</h2>
+                        <p style="font-family: monospace;">${word.ipa || ''}</p>
+                        <div class="card-hint-text">👆 Nhấn Space hoặc click để lật lại</div>
                     </div>
                     <div class="card-face card-back">
-                        <span class="type-badge" style="background:rgba(255,255,255,0.2); color:white; margin-bottom:10px;">Nghĩa Tiếng Việt</span>
-                        <h2 style="font-size:1.8rem;">${word.vi}</h2>
+                        <span style="font-size:0.8rem; text-transform:uppercase; letter-spacing:1px; opacity:0.8;">NGHĨA TIẾNG VIỆT</span>
+                        <h2 style="font-size: 1.8rem; margin: 15px 0;">${word.vi}</h2>
+                        <div class="card-hint-text">👆 Nhấn Space hoặc click để lật mặt trước</div>
                     </div>
                 </div>
             </div>
+
             <div class="flashcard-controls">
-                <button class="btn-control btn-nav" onclick="prevFlashcard()">‹ Trước</button>
-                <button class="btn-speak" onclick="speakText('${word.en.replace(/'/g, "\\'")}')">🔊 Phát âm</button>
-                <button class="btn-control btn-nav" onclick="nextFlashcard()">Tiếp ›</button>
+                <button class="btn-control btn-nav" onclick="prevCard()">‹ Trước</button>
+                <button class="btn-speak" onclick="speakText('${word.en}')">🔊 Nghe phát âm (Tab)</button>
+                <button class="btn-control btn-nav" onclick="nextCard()">Tiếp ›</button>
             </div>
         `;
         speakText(word.en);
     }
 
-    function flipCard(el) {
-        const card = el.querySelector('#fcCard');
-        card.classList.toggle('is-flipped');
+    function toggleCardFlip() {
+        const el = document.getElementById('card3d');
+        if (el) el.classList.toggle('is-flipped');
     }
 
-    function prevFlashcard() {
-        if (currentIndex > 0) {
-            currentIndex--;
-            loadCurrentQuestion();
-        }
-    }
-
-    function nextFlashcard() {
+    function nextCard() {
         currentIndex++;
-        loadCurrentQuestion();
+        renderCurrentQuestion();
     }
 
-    /* 2. QUIZ LOGIC */
-    function renderQuiz() {
+    function prevCard() {
+        if (currentIndex > 0) currentIndex--;
+        renderCurrentQuestion();
+    }
+
+    /* --- 2. QUIZ MODE --- */
+    function renderQuizView() {
         const word = currentStudyWords[currentIndex];
         const container = document.getElementById('studyContent');
 
-        const allWords = vocabSets[currentSetIndex].words;
-        let distractors = allWords.filter(w => w.en !== word.en);
-        distractors = shuffleArray(distractors).slice(0, 3);
-
-        const options = shuffleArray([word, ...distractors]);
+        let options = [word.vi];
+        let otherWords = currentStudyWords.filter(w => w.vi !== word.vi).sort(() => 0.5 - Math.random());
+        for (let i = 0; i < Math.min(3, otherWords.length); i++) options.push(otherWords[i].vi);
+        options.sort(() => 0.5 - Math.random());
 
         container.innerHTML = `
             <div class="quiz-word-box">
-                <span class="type-badge">${word.type}</span>
-                <div class="quiz-word">${word.en} <span class="ipa-text">${word.ipa}</span></div>
-                <p style="color:#64748b; font-size:0.95rem;">Chọn nghĩa tiếng Việt đúng nhất:</p>
+                <div class="quiz-word">${word.en}</div>
+                <div>
+                    <button onclick="speakText('${word.en}')" style="background:none; border:none; cursor:pointer; color:#0284c7; font-size:1.2rem;">🔊</button>
+                    <span class="type-badge">${word.type || 'NOUN'}</span>
+                    <span class="ipa-text">${word.ipa || ''}</span>
+                </div>
             </div>
+
             <div class="quiz-grid">
                 ${options.map((opt, idx) => `
-                    <div class="quiz-opt" id="quizOpt_${idx}" onclick="selectQuizOption(${idx}, '${opt.en.replace(/'/g, "\\'")}', '${word.en.replace(/'/g, "\\'")}')">
+                    <div class="quiz-opt" id="opt-${idx}" onclick="checkQuizAnswer(this, '${opt.replace(/'/g, "\\'")}', '${word.vi.replace(/'/g, "\\'")}')">
                         <div class="opt-num">${idx + 1}</div>
-                        <div>${opt.vi}</div>
+                        <div>${opt}</div>
                     </div>
                 `).join('')}
             </div>
+            <div style="text-align:center; font-size:0.85rem; color:#94a3b8; margin-top:10px;">Phím 1-4: chọn đáp án | Tab: nghe lại từ</div>
         `;
         speakText(word.en);
     }
 
-    function selectQuizOption(optIdx, selectedEn, correctEn) {
+    function checkQuizAnswer(element, selected, correct) {
         if (isAnswered) return;
         isAnswered = true;
 
-        const isCorrect = selectedEn === correctEn;
-        const currentWord = currentStudyWords[currentIndex];
-        const optEl = document.getElementById(`quizOpt_${optIdx}`);
+        const word = currentStudyWords[currentIndex];
+        const allOptions = document.querySelectorAll('.quiz-opt');
 
-        if (isCorrect) {
-            optEl.classList.add('opt-correct');
+        if (selected === correct) {
+            element.classList.add('opt-correct');
+            correctList.push(word);
+            showFeedbackBanner(true, word);
         } else {
-            optEl.classList.add('opt-wrong');
+            element.classList.add('opt-wrong');
+            allOptions.forEach(opt => {
+                if (opt.innerText.includes(correct)) {
+                    opt.classList.add('opt-correct');
+                }
+            });
+            wrongList.push(word);
+            showFeedbackBanner(false, word);
         }
-
-        showFeedback(isCorrect, currentWord);
     }
 
-    /* 3. LISTENING LOGIC */
-    function renderListening() {
+    /* --- 3. LISTENING MODE --- */
+    function renderListeningView() {
         const word = currentStudyWords[currentIndex];
         const container = document.getElementById('studyContent');
-        revealedLength = 0;
+
+        let maskDisplay = "";
+        for (let i = 0; i < word.en.length; i++) {
+            const char = word.en[i];
+            if (char === ' ') {
+                maskDisplay += "  ";
+            } else if (i < revealedLength) {
+                maskDisplay += char;
+            } else {
+                maskDisplay += "_";
+            }
+        }
 
         container.innerHTML = `
             <div class="listen-box">
                 <div class="vi-meaning-title">${word.vi}</div>
-                <div class="mask-word-display" id="maskDisplay">${getMaskedWord(word.en, 0)}</div>
-                
-                <input type="text" id="listenInput" class="input-listen-styled" autocomplete="off" placeholder="Gõ từ Tiếng Anh tại đây..." onkeyup="handleListeningTyping(event)">
-                <div class="typing-feedback" id="typingFeedback"></div>
+                <div>
+                    <button onclick="speakText('${word.en}')" style="background:none; border:none; cursor:pointer; color:#0284c7; font-size:1.2rem; vertical-align:middle; margin-right:5px;">🔊</button>
+                    <span class="type-badge">${word.type || 'NOUN'}</span>
+                </div>
+
+                <div class="mask-word-display">${maskDisplay}</div>
+
+                <div>
+                    <input type="text" id="listenInput" class="input-listen-styled" placeholder="Gõ từ tiếng Anh..." oninput="checkTypingRealtime('${word.en.replace(/'/g, "\\'")}')" onkeypress="if(event.key==='Enter') submitListenAnswer('${word.en.replace(/'/g, "\\'")}')">
+                </div>
+
+                <div id="typingFeedback" class="typing-feedback"></div>
 
                 <div class="listen-actions-bar">
                     <button class="btn-action-tool" onclick="speakText('${word.en.replace(/'/g, "\\'")}')">
                         🔊 Nghe lại
-                        <span class="tool-shortcut">(Phím Alt)</span>
+                        <span class="tool-shortcut">Tab</span>
                     </button>
-                    <button class="btn-action-tool" onclick="revealHint()">
-                        💡 Gợi ý ký tự
-                        <span class="tool-shortcut">(Phím Space)</span>
+                    <button class="btn-action-tool" onclick="giveHint('${word.en.replace(/'/g, "\\'")}')">
+                        🎯 Gợi ý (${revealedLength}/${word.en.length})
+                        <span class="tool-shortcut">Space</span>
                     </button>
-                    <button class="btn-submit-green" onclick="checkListeningAnswer()">Xác nhận (Enter)</button>
+                    <button class="btn-submit-green" onclick="submitListenAnswer('${word.en.replace(/'/g, "\\'")}')">
+                        Kiểm tra
+                        <div class="tool-shortcut" style="color:rgba(255,255,255,0.8);">Enter</div>
+                    </button>
                 </div>
             </div>
         `;
 
         speakText(word.en);
+
         setTimeout(() => {
-            const input = document.getElementById('listenInput');
-            if (input) input.focus();
-        }, 100);
+            const inputEl = document.getElementById('listenInput');
+            if (inputEl) inputEl.focus();
+        }, 50);
     }
 
-    function getMaskedWord(wordStr, visibleLen) {
-        let result = '';
-        for (let i = 0; i < wordStr.length; i++) {
-            if (wordStr[i] === ' ') {
-                result += ' ';
-            } else if (i < visibleLen) {
-                result += wordStr[i];
-            } else {
-                result += '_';
-            }
-        }
-        return result;
-    }
-
-    function revealHint() {
-        const word = currentStudyWords[currentIndex];
-        if (revealedLength < word.en.length) {
-            revealedLength++;
-            document.getElementById('maskDisplay').innerText = getMaskedWord(word.en, revealedLength);
-        }
-    }
-
-    function handleListeningTyping(e) {
-        if (e.key === 'Enter') {
-            checkListeningAnswer();
-        }
-    }
-
-    function checkListeningAnswer() {
+    function giveHint(correctWord) {
         if (isAnswered) return;
+        if (revealedLength < correctWord.length) {
+            revealedLength++;
+            renderListeningView();
+        }
+    }
 
-        const word = currentStudyWords[currentIndex];
+    function checkTypingRealtime(target) {
+        if (isAnswered) return;
+        const val = document.getElementById('listenInput').value.toLowerCase();
+        const feedback = document.getElementById('typingFeedback');
+
+        if (val === '') {
+            feedback.innerHTML = '';
+            return;
+        }
+
+        if (target.toLowerCase().startsWith(val)) {
+            feedback.className = 'typing-feedback text-success';
+            feedback.innerText = '👍 Đang đúng hướng...';
+        } else {
+            feedback.className = 'typing-feedback text-error';
+            feedback.innerText = '⚠️ Kiểm tra lại cách viết';
+        }
+    }
+
+    function submitListenAnswer(correctWord) {
+        if (isAnswered) {
+            proceedToNextQuestion();
+            return;
+        }
+
         const inputEl = document.getElementById('listenInput');
-        const userAns = inputEl.value.trim().toLowerCase();
-        const targetAns = word.en.trim().toLowerCase();
-
-        if (!userAns) return;
+        const inputVal = inputEl.value.trim().toLowerCase();
+        const word = currentStudyWords[currentIndex];
 
         isAnswered = true;
-        const isCorrect = userAns === targetAns;
+        inputEl.disabled = true;
 
-        if (isCorrect) {
+        if (inputVal === correctWord.toLowerCase()) {
             inputEl.classList.add('correct-border');
+            correctList.push(word);
+            showFeedbackBanner(true, word);
         } else {
             inputEl.classList.add('wrong-border');
+            wrongList.push(word);
+            showFeedbackBanner(false, word);
         }
-
-        showFeedback(isCorrect, word);
     }
 
-    /* FEEDBACK BANNER CONTROL */
-    function showFeedback(isCorrect, word) {
+    function showFeedbackBanner(isCorrect, word) {
         const banner = document.getElementById('feedbackBanner');
         banner.className = `feedback-banner ${isCorrect ? 'bg-correct' : 'bg-wrong'}`;
         
-        document.getElementById('fbStatusTitle').innerText = isCorrect ? '✓ Chính xác!' : '✕ Chưa chính xác!';
+        document.getElementById('fbStatusTitle').innerHTML = isCorrect 
+            ? '✓ Chính xác!' 
+            : '✕ Chưa chính xác!';
+        
         document.getElementById('fbWordEn').innerText = word.en;
-        document.getElementById('fbWordType').innerText = word.type ? `(${word.type.toLowerCase()})` : '';
-        document.getElementById('fbWordIpa').innerText = word.ipa || '';
+        document.getElementById('fbWordType').innerText = `(${word.type ? word.type.toLowerCase() : 'noun'})`;
+        document.getElementById('fbWordIpa').innerText = word.ipa ? `//${word.ipa.replace(/\//g,'')}//` : '';
         document.getElementById('fbWordVi').innerText = `Nghĩa: ${word.vi}`;
-
         document.getElementById('fbSpeakBtn').onclick = () => speakText(word.en);
+
         banner.style.display = 'flex';
+        speakText(word.en);
     }
 
-    function hideFeedback() {
+    function hideFeedbackBanner() {
         document.getElementById('feedbackBanner').style.display = 'none';
     }
 
     function proceedToNextQuestion() {
         currentIndex++;
-        loadCurrentQuestion();
+        renderCurrentQuestion();
     }
 
     // Lắng nghe phím tắt bàn phím toàn cục
     document.addEventListener('keydown', (e) => {
         const banner = document.getElementById('feedbackBanner');
-        if (banner.style.display === 'flex' && e.key === 'Enter') {
+        if (banner && banner.style.display === 'flex' && e.key === 'Enter') {
             e.preventDefault();
             proceedToNextQuestion();
             return;
         }
 
-        if (currentMode === 'listening' && document.getElementById('studyModal').style.display === 'block') {
-            if (e.key === ' ' && document.activeElement.id !== 'listenInput') {
-                e.preventDefault();
-                revealHint();
-            } else if (e.key === 'Alt') {
+        if (document.getElementById('studyModal').style.display === 'block') {
+            if (e.key === 'Tab') {
                 e.preventDefault();
                 const word = currentStudyWords[currentIndex];
                 if (word) speakText(word.en);
             }
+
+            if (currentMode === 'flashcard') {
+                if (e.key === ' ') {
+                    e.preventDefault();
+                    toggleCardFlip();
+                } else if (e.key === 'ArrowRight') {
+                    nextCard();
+                } else if (e.key === 'ArrowLeft') {
+                    prevCard();
+                }
+            } else if (currentMode === 'quiz' && !isAnswered) {
+                if (['1', '2', '3', '4'].includes(e.key)) {
+                    const optIdx = parseInt(e.key) - 1;
+                    const optEl = document.getElementById(`opt-${optIdx}`);
+                    if (optEl) optEl.click();
+                }
+            } else if (currentMode === 'listening') {
+                if (e.key === ' ' && document.activeElement.id !== 'listenInput') {
+                    e.preventDefault();
+                    const word = currentStudyWords[currentIndex];
+                    if (word) giveHint(word.en);
+                }
+            }
         }
     });
-</script>
 
-<!-- POPUP HỎI KEY / ĐĂNG KÝ KEY MỚI -->
-<div id="keyAuthModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
-    <div style="background: white; padding: 30px; border-radius: 24px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
-        <div style="font-size: 3rem; margin-bottom: 10px;">🔑</div>
-        <h3 style="margin-bottom: 8px; color: #1e293b; font-size: 1.3rem;">Hệ Thống Học Từ Vựng</h3>
-        <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 20px;">Vui lòng chọn trạng thái tài khoản của bạn:</p>
-
-        <!-- Nút chuyển Tab Đã có Key / Chưa có Key -->
-        <div style="display: flex; gap: 8px; margin-bottom: 20px; background: #f1f5f9; padding: 4px; border-radius: 12px;">
-            <button id="tabHaveKeyBtn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: white; color: #4318ff; box-shadow: 0 2px 4px rgba(0,0,0,0.05);" onclick="switchAuthTab('haveKey')">Đã có Key</button>
-            <button id="tabNewKeyBtn" style="flex: 1; padding: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: transparent; color: #64748b;" onclick="switchAuthTab('newKey')">Chưa có (Tạo mới)</button>
-        </div>
-
-        <!-- Khung 1: Đã có Key -->
-        <div id="formHaveKey">
-            <input type="text" id="modalExistKeyInput" class="input-key" placeholder="Nhập Key của bạn..." style="width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 1rem; border: 2px solid #cbd5e1;" onkeypress="if(event.key==='Enter') loginWithKey()">
-            <button class="btn-primary" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px;" onclick="loginWithKey()">Nhập Key & Vào Học</button>
-        </div>
-
-        <!-- Khung 2: Đăng ký Key mới -->
-        <div id="formNewKey" style="display: none;">
-            <input type="text" id="modalNewKeyInput" class="input-key" placeholder="Tạo Key mới (VD: tuan2026)..." style="width: 100%; padding: 12px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-size: 1rem; border: 2px solid #cbd5e1;" onkeypress="if(event.key==='Enter') registerNewKey()">
-            <button class="btn-secondary" style="width: 100%; padding: 12px; font-size: 1rem; border-radius: 10px; background: #16a34a;" onclick="registerNewKey()">Đăng Ký & Tạo Key Mới</button>
-        </div>
-    </div>
-</div>
-
-<script>
-  // Chặn menu chuột phải & phím tắt kiểm tra trang
-  document.addEventListener('contextmenu', event => event.preventDefault());
-  document.onkeydown = function (e) {
-    if (e.keyCode === 123) return false;
-    if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) return false;
-    if (e.ctrlKey && e.keyCode === 85) return false;
-  };
+    // Chặn menu chuột phải & phím tắt kiểm tra trang
+    document.addEventListener('contextmenu', event => event.preventDefault());
+    document.onkeydown = function (e) {
+        if (e.keyCode === 123) return false;
+        if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) return false;
+        if (e.ctrlKey && e.keyCode === 85) return false;
+    };
 </script>
 </body>
 </html>
