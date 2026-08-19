@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
+<link rel="icon" type="image/png" href="favicon.png?v=2">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ Thống Học Từ Vựng (Lưu Theo Key Cá Nhân)</title> 
@@ -26,6 +27,12 @@
         .btn-connect:hover { background: #3311cc; }
         .btn-switch { background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
         .key-badge { background: #e0e7ff; color: #4318ff; padding: 4px 12px; border-radius: 15px; font-size: 0.85rem; font-weight: 700; }
+
+        /* Từ điển Tra cứu UI */
+        .dictionary-box { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); margin-bottom: 25px; }
+        .dict-search-bar { display: flex; gap: 10px; margin-top: 12px; }
+        .input-dict-search { flex: 1; padding: 10px 16px; border-radius: 10px; border: 1.5px solid #cbd5e1; outline: none; font-size: 0.95rem; }
+        .input-dict-search:focus { border-color: #4318ff; }
 
         /* Grid Bộ Từ */
         .set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-bottom: 25px; }
@@ -156,6 +163,15 @@
                 <button class="btn-auth btn-switch" onclick="switchKey()">Đổi Key</button>
             </div>
         </div>
+    </div>
+
+    <!-- Từ điển Tra cứu Toàn bộ Từ vựng -->
+    <div class="dictionary-box">
+        <h3 class="title" style="font-size: 1.1rem;">📖 Từ Điển Tra Cứu Cá Nhân</h3>
+        <div class="dict-search-bar">
+            <input type="text" id="dictSearchInput" class="input-dict-search" placeholder="Nhập từ Tiếng Anh hoặc Tiếng Việt để tìm..." oninput="searchDictionary()">
+        </div>
+        <div id="dictResultsBox" style="margin-top: 15px; max-height: 250px; overflow-y: auto;"></div>
     </div>
 
     <!-- Danh Sách Bộ Từ -->
@@ -301,17 +317,65 @@
 
   window.addEventListener('DOMContentLoaded', async () => {
     if (currentKey) {
-        // Đã từng đăng nhập trên trình duyệt này -> Vào thẳng trang
         document.getElementById('keyAuthModal').style.display = 'none';
         document.getElementById('keyInputZone').style.display = 'none';
         document.getElementById('activeKeyZone').style.display = 'flex';
         document.getElementById('currentKeyBadge').innerText = currentKey;
         await loadDataFromKey(currentKey);
     } else {
-        // Chưa có Key -> Mở Popup bắt chọn "Đã có Key" hoặc "Tạo Key mới"
         document.getElementById('keyAuthModal').style.display = 'flex';
     }
 });
+
+function searchDictionary() {
+    const keyword = document.getElementById('dictSearchInput').value.trim().toLowerCase();
+    const resultsContainer = document.getElementById('dictResultsBox');
+
+    if (!keyword) {
+        resultsContainer.innerHTML = '';
+        return;
+    }
+
+    let matches = [];
+    vocabSets.forEach(set => {
+        set.words.forEach(w => {
+            if (w.en.toLowerCase().includes(keyword) || w.vi.toLowerCase().includes(keyword)) {
+                matches.push({ ...w, setName: set.name });
+            }
+        });
+    });
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = '<p style="font-size:0.85rem; color:#64748b;">Không tìm thấy từ vựng khớp với từ khóa.</p>';
+        return;
+    }
+
+    resultsContainer.innerHTML = `
+        <table class="vocab-table">
+            <thead>
+                <tr>
+                    <th>Từ Tiếng Anh</th>
+                    <th>Loại từ & IPA</th>
+                    <th>Nghĩa Tiếng Việt</th>
+                    <th>Thuộc Bộ Từ</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${matches.map(w => `
+                    <tr>
+                        <td>
+                            <b>${w.en}</b> 
+                            <button class="btn-mini-speak" onclick="speakText('${w.en.replace(/'/g, "\\'")}')">🔊</button>
+                        </td>
+                        <td><span class="type-badge">${w.type || 'NOUN'}</span> ${w.ipa || ''}</td>
+                        <td>${w.vi}</td>
+                        <td style="color:#64748b; font-size:0.85rem;">${w.setName}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+}
 
 // Chuyển đổi qua lại giữa Đã có Key và Đăng ký mới
 function switchAuthTab(tab) {
@@ -355,7 +419,6 @@ async function loginWithKey() {
             return alert(`⚠️ Key "${sanitizedKey}" không tồn tại trên hệ thống!\nVui lòng kiểm tra lại hoặc chọn nút "Chưa có (Tạo mới)".`);
         }
 
-        // Key hợp lệ -> Tiến hành đăng nhập
         currentKey = sanitizedKey;
         localStorage.setItem('activeVocabKey', currentKey);
         document.getElementById('keyAuthModal').style.display = 'none';
@@ -386,7 +449,6 @@ async function registerNewKey() {
             return alert(`⚠️ Mã Key "${sanitizedKey}" đã được người khác sử dụng!\nVui lòng đặt một tên Key khác.`);
         }
 
-        // Tạo Key mới lên Firebase
         vocabSets = defaultSets;
         await docRef.set({ vocabSets: defaultSets, createdAt: new Date() });
 
@@ -757,7 +819,6 @@ async function registerNewKey() {
         const word = currentStudyWords[currentIndex];
         const container = document.getElementById('studyContent');
 
-        // Tạo 3 phương án sai ngẫu nhiên
         const allWords = vocabSets[currentSetIndex].words;
         let distractors = allWords.filter(w => w.en !== word.en);
         distractors = shuffleArray(distractors).slice(0, 3);
@@ -929,6 +990,7 @@ async function registerNewKey() {
         }
     });
 </script>
+
 <!-- POPUP HỎI KEY / ĐĂNG KÝ KEY MỚI -->
 <div id="keyAuthModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 9999;">
     <div style="background: white; padding: 30px; border-radius: 24px; max-width: 420px; width: 90%; text-align: center; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.3);">
@@ -955,19 +1017,13 @@ async function registerNewKey() {
         </div>
     </div>
 </div>
-<script>
-  // 1. Chặn menu chuột phải
-  document.addEventListener('contextmenu', event => event.preventDefault());
 
-  // 2. Chặn các phím tắt F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
+<script>
+  // Chặn menu chuột phải & phím tắt kiểm tra trang
+  document.addEventListener('contextmenu', event => event.preventDefault());
   document.onkeydown = function (e) {
-    // F12
     if (e.keyCode === 123) return false;
-    
-    // Ctrl + Shift + I / J / C
     if (e.ctrlKey && e.shiftKey && (e.keyCode === 73 || e.keyCode === 74 || e.keyCode === 67)) return false;
-    
-    // Ctrl + U (Xem nguồn trang)
     if (e.ctrlKey && e.keyCode === 85) return false;
   };
 </script>
