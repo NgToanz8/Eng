@@ -323,7 +323,7 @@
 
     const defaultSets = [
         {
-            id: 1, name: "1 - Contracts (TOEIC)",
+            id: "1", name: "1 - Contracts (TOEIC)",
             words: [
                 { en: "agreement", ipa: "/ə'gri:mənt/", type: "NOUN", vi: "hợp đồng, sự thỏa thuận" },
                 { en: "establish", ipa: "/is'tæbli∫/", type: "VERB", vi: "thiết lập" },
@@ -336,7 +336,7 @@
     ];
 
     let currentKey = localStorage.getItem('activeVocabKey') || '';
-    let vocabSets = defaultSets;
+    let vocabSets = [];
 
     let currentSetIndex = -1;
     let currentIndex = 0;
@@ -370,11 +370,13 @@
 
         let matches = [];
         vocabSets.forEach(set => {
-            set.words.forEach(w => {
-                if (w.en.toLowerCase().includes(keyword) || w.vi.toLowerCase().includes(keyword)) {
-                    matches.push({ ...w, setName: set.name });
-                }
-            });
+            if(set.words) {
+                set.words.forEach(w => {
+                    if (w.en.toLowerCase().includes(keyword) || w.vi.toLowerCase().includes(keyword)) {
+                        matches.push({ ...w, setName: set.name });
+                    }
+                });
+            }
         });
 
         if (matches.length === 0) {
@@ -442,10 +444,11 @@
         const sanitizedKey = keyVal.replace(/[^a-z0-9_]/g, '');
 
         try {
-            const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
-            const doc = await docRef.get();
+            const userRef = db.collection('vocab_by_keys').doc(sanitizedKey);
+            const userDoc = await userRef.get();
+            const setsSnap = await userRef.collection('sets').limit(1).get();
 
-            if (!doc.exists) {
+            if (!userDoc.exists && setsSnap.empty) {
                 return alert(`⚠️ Key "${sanitizedKey}" không tồn tại trên hệ thống!\nVui lòng kiểm tra lại hoặc chọn nút "Chưa có (Tạo mới)".`);
             }
 
@@ -456,9 +459,7 @@
             document.getElementById('activeKeyZone').style.display = 'flex';
             document.getElementById('currentKeyBadge').innerText = currentKey;
 
-            vocabSets = doc.data().vocabSets || defaultSets;
-            renderSets();
-            document.getElementById('syncStatusNote').innerHTML = `✅ Đã kết nối thành công Key "<b>${currentKey}</b>"!`;
+            await loadDataFromKey(currentKey);
         } catch (e) {
             alert("Lỗi kết nối Firebase: " + e.message);
         }
@@ -471,15 +472,13 @@
         if (sanitizedKey.length < 3) return alert("Mã Key phải có từ 3 ký tự trở lên (không dấu, không khoảng trắng)!");
 
         try {
-            const docRef = db.collection('vocab_by_keys').doc(sanitizedKey);
-            const doc = await docRef.get();
+            const userRef = db.collection('vocab_by_keys').doc(sanitizedKey);
+            const userDoc = await userRef.get();
+            const setsSnap = await userRef.collection('sets').limit(1).get();
 
-            if (doc.exists) {
+            if (userDoc.exists || !setsSnap.empty) {
                 return alert(`⚠️ Mã Key "${sanitizedKey}" đã được người khác sử dụng!\nVui lòng đặt một tên Key khác.`);
             }
-
-            vocabSets = defaultSets;
-            await docRef.set({ vocabSets: defaultSets, createdAt: new Date() });
 
             currentKey = sanitizedKey;
             localStorage.setItem('activeVocabKey', currentKey);
@@ -488,9 +487,8 @@
             document.getElementById('activeKeyZone').style.display = 'flex';
             document.getElementById('currentKeyBadge').innerText = currentKey;
 
-            renderSets();
+            await loadDataFromKey(currentKey);
             alert(`🎉 Đã tạo thành công Key mới: "${sanitizedKey}"!`);
-            document.getElementById('syncStatusNote').innerHTML = `🎉 Đã khởi tạo kho dữ liệu cho Key "<b>${currentKey}</b>"!`;
         } catch (e) {
             alert("Lỗi khi tạo Key trên Firebase: " + e.message);
         }
@@ -520,45 +518,89 @@
         }
     }
 
+    // ----------------------------------------------------
+    // 📂 HÀM TẢI & TỰ ĐỘNG CHUYỂN ĐỔI SANG SUBCOLLECTION
+    // ----------------------------------------------------
     async function loadDataFromKey(key) {
         document.getElementById('syncStatusNote').innerHTML = `🔄 Đang tải dữ liệu của Key "<b>${key}</b>"...`;
         try {
-            const docRef = db.collection('vocab_by_keys').doc(key);
-            const doc = await docRef.get();
+            const userRef = db.collection('vocab_by_keys').doc(key);
+            const userDoc = await userRef.get();
 
-            if (doc.exists && doc.data().vocabSets) {
-                vocabSets = doc.data().vocabSets;
-                document.getElementById('syncStatusNote').innerHTML = `✅ Đã kết nối thành công Key "<b>${key}</b>"! Dữ liệu của bạn tự động đồng bộ Cloud.`;
+            // BƯỚC 1: Tự động nâng cấp dữ liệu cấu trúc cũ (nếu có) sang Subcollection
+            if (userDoc.exists && userDoc.data().vocabSets) {
+                document.getElementById('syncStatusNote').innerHTML = `⚙️ Đang nâng cấp kho dữ liệu cho Key "<b>${key}</b>"...`;
+                const oldSets = userDoc.data().vocabSets;
+                for (let set of oldSets) {
+                    const setId = String(set.id || Date.now());
+                    await userRef.collection('sets').doc(setId).set({
+                        id: setId,
+                        name: set.name,
+                        words: set.words || [],
+                        createdAt: new Date()
+                    });
+                }
+                // Xóa mảng cũ trong Doc chính để tiết kiệm dung lượng
+                await userRef.update({ vocabSets: firebase.firestore.FieldValue.delete() });
+            }
+
+            // BƯỚC 2: Đọc dữ liệu từ Subcollection 'sets'
+            const setsSnap = await userRef.collection('sets').orderBy('createdAt', 'asc').get();
+
+            if (!setsSnap.empty) {
+                vocabSets = setsSnap.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                document.getElementById('syncStatusNote').innerHTML = `✅ Đã kết nối thành công Key "<b>${key}</b>"! Dữ liệu lưu dưới dạng Subcollection cực kỳ tối ưu.`;
             } else {
-                vocabSets = defaultSets;
-                await docRef.set({ vocabSets: defaultSets, createdAt: new Date() });
+                // Nếu là Key hoàn toàn mới, khởi tạo bộ mẫu
+                vocabSets = defaultSets.map(s => ({ ...s, id: String(s.id) }));
+                for (let s of vocabSets) {
+                    await userRef.collection('sets').doc(s.id).set({
+                        id: s.id,
+                        name: s.name,
+                        words: s.words,
+                        createdAt: new Date()
+                    });
+                }
+                await userRef.set({ createdAt: new Date() }, { merge: true });
                 document.getElementById('syncStatusNote').innerHTML = `🎉 Đã tạo kho dữ liệu mới cho Key "<b>${key}</b>"!`;
             }
             renderSets();
         } catch (e) {
             console.error("Lỗi khi tải data:", e);
-            document.getElementById('syncStatusNote').innerHTML = `⚠️ Lỗi kết nối Firestore. Vui lòng kiểm tra cấu hình Firebase!`;
+            document.getElementById('syncStatusNote').innerHTML = `⚠️ Lỗi kết nối Firestore: ${e.message}`;
         }
     }
 
-    async function saveDataToCloud() {
-        if (!currentKey) {
-            alert("⚠️ Bạn chưa kết nối Mã Key! Hãy nhập Key ở phía trên để lưu dữ liệu.");
-            return;
-        }
-
-        document.getElementById('syncStatusNote').innerHTML = `💾 Đang lưu dữ liệu lên Cloud cho Key "<b>${currentKey}</b>"...`;
-
+    // ----------------------------------------------------
+    // ☁️ HÀM LƯU TỪNG BỘ TỪ LÊN SUBCOLLECTION FIREBASE
+    // ----------------------------------------------------
+    async function saveSetToCloud(setObj) {
+        if (!currentKey) return;
+        document.getElementById('syncStatusNote').innerHTML = `💾 Đang lưu bộ từ "${setObj.name}" lên Cloud...`;
         try {
-            await db.collection('vocab_by_keys').doc(currentKey).set({
-                vocabSets: vocabSets,
+            const setId = String(setObj.id);
+            await db.collection('vocab_by_keys').doc(currentKey).collection('sets').doc(setId).set({
+                id: setId,
+                name: setObj.name,
+                words: setObj.words,
                 updatedAt: new Date()
             }, { merge: true });
-
             document.getElementById('syncStatusNote').innerHTML = `✅ Đã lưu dữ liệu thành công cho Key "<b>${currentKey}</b>"!`;
         } catch (e) {
             console.error("Lỗi lưu Cloud:", e);
             alert("Lỗi lưu dữ liệu: " + e.message);
+        }
+    }
+
+    async function deleteSetFromCloud(setId) {
+        if (!currentKey) return;
+        document.getElementById('syncStatusNote').innerHTML = `🗑️ Đang xóa bộ từ trên Cloud...`;
+        try {
+            await db.collection('vocab_by_keys').doc(currentKey).collection('sets').doc(String(setId)).delete();
+            document.getElementById('syncStatusNote').innerHTML = `✅ Đã xóa bộ từ thành công!`;
+        } catch (e) {
+            console.error("Lỗi xóa Cloud:", e);
+            alert("Lỗi xóa dữ liệu: " + e.message);
         }
     }
 
@@ -570,7 +612,7 @@
                     <div class="set-num">${index + 1}</div>
                     <div>
                         <h4 style="font-size:0.95rem; color:#1e293b;">${set.name}</h4>
-                        <p style="font-size:0.8rem; color:#64748b;">${set.words.length} từ vựng</p>
+                        <p style="font-size:0.8rem; color:#64748b;">${set.words ? set.words.length : 0} từ vựng</p>
                     </div>
                 </div>
                 <button class="btn-delete-set" onclick="deleteSet(event, ${index})">✕</button>
@@ -587,9 +629,11 @@
         document.getElementById('viewWordsBox').style.display = 'none';
     }
 
-    function deleteSet(event, index) {
+    async function deleteSet(event, index) {
         event.stopPropagation();
-        if (confirm(`Xóa bộ từ "${vocabSets[index].name}"?`)) {
+        const set = vocabSets[index];
+        if (confirm(`Xóa bộ từ "${set.name}"?`)) {
+            const setId = set.id;
             vocabSets.splice(index, 1);
             if (currentSetIndex === index) {
                 currentSetIndex = -1;
@@ -597,8 +641,8 @@
             } else if (currentSetIndex > index) {
                 currentSetIndex--;
             }
-            saveDataToCloud();
             renderSets();
+            await deleteSetFromCloud(setId);
         }
     }
 
@@ -618,7 +662,7 @@
         return words;
     }
 
-    function addNewSet() {
+    async function addNewSet() {
         const name = document.getElementById('newSetName').value.trim();
         const text = document.getElementById('newSetVocab').value.trim();
         if (!name || !text) return alert("Vui lòng nhập tên và từ vựng!");
@@ -626,11 +670,19 @@
         const words = parseVocabText(text);
         if (words.length === 0) return alert("Định dạng từ vựng sai!");
 
-        vocabSets.push({ id: Date.now(), name, words });
-        saveDataToCloud();
+        const newSet = {
+            id: String(Date.now()),
+            name: name,
+            words: words,
+            createdAt: new Date()
+        };
+
+        vocabSets.push(newSet);
         renderSets();
         document.getElementById('newSetName').value = '';
         document.getElementById('newSetVocab').value = '';
+        
+        await saveSetToCloud(newSet);
         alert("Thêm bộ từ mới thành công!");
     }
 
@@ -657,7 +709,7 @@
         const container = document.getElementById('viewWordsTableContainer');
         const words = vocabSets[currentSetIndex].words;
 
-        if (words.length === 0) {
+        if (!words || words.length === 0) {
             container.innerHTML = '<p style="font-size:0.85rem; color:#64748b;">Bộ này chưa có từ vựng nào.</p>';
             return;
         }
@@ -693,17 +745,18 @@
         `;
     }
 
-    function deleteWordFromCurrentSet(wordIndex) {
-        if (confirm(`Xóa từ "${vocabSets[currentSetIndex].words[wordIndex].en}" khỏi bộ này?`)) {
-            vocabSets[currentSetIndex].words.splice(wordIndex, 1);
-            saveDataToCloud();
+    async function deleteWordFromCurrentSet(wordIndex) {
+        const targetSet = vocabSets[currentSetIndex];
+        if (confirm(`Xóa từ "${targetSet.words[wordIndex].en}" khỏi bộ này?`)) {
+            targetSet.words.splice(wordIndex, 1);
             renderSets();
-            document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${vocabSets[currentSetIndex].name} (${vocabSets[currentSetIndex].words.length} từ)`;
+            document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${targetSet.name} (${targetSet.words.length} từ)`;
             renderViewWordsTable();
+            await saveSetToCloud(targetSet);
         }
     }
 
-    function addWordsToCurrentSet() {
+    async function addWordsToCurrentSet() {
         if (currentSetIndex === -1) return;
         const text = document.getElementById('appendVocabText').value.trim();
         if (!text) return alert("Vui lòng nhập từ vựng muốn thêm!");
@@ -711,14 +764,16 @@
         const newWords = parseVocabText(text);
         if (newWords.length === 0) return alert("Định dạng từ vựng chưa đúng!");
 
-        vocabSets[currentSetIndex].words.push(...newWords);
-        saveDataToCloud();
+        const targetSet = vocabSets[currentSetIndex];
+        targetSet.words.push(...newWords);
         renderSets();
         
-        document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${vocabSets[currentSetIndex].name} (${vocabSets[currentSetIndex].words.length} từ)`;
+        document.getElementById('selectedTitle').innerText = `Bộ đang chọn: ${targetSet.name} (${targetSet.words.length} từ)`;
         document.getElementById('appendVocabText').value = '';
         toggleAppendBox();
-        alert(`Đã thêm ${newWords.length} từ vựng vào bộ "${vocabSets[currentSetIndex].name}"!`);
+
+        await saveSetToCloud(targetSet);
+        alert(`Đã thêm ${newWords.length} từ vựng vào bộ "${targetSet.name}"!`);
     }
 
     function speakText(text) {
@@ -753,7 +808,7 @@
 
     function startMode(mode) {
         if (currentSetIndex === -1) return;
-        if (vocabSets[currentSetIndex].words.length === 0) {
+        if (!vocabSets[currentSetIndex].words || vocabSets[currentSetIndex].words.length === 0) {
             return alert("Bộ từ này chưa có từ vựng nào!");
         }
         currentMode = mode;
